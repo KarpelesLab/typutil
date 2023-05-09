@@ -56,6 +56,8 @@ func AsBool(v any) bool {
 			return true
 		}
 		return false
+	case json.Number:
+		return AsBool(string(r))
 	case json.RawMessage:
 		// convert to interface{}, re-run through the process
 		var x interface{}
@@ -118,6 +120,8 @@ func AsInt(v any) (int64, bool) {
 		return res, err == nil
 	case *bytes.Buffer:
 		return AsInt(string(n.Bytes()))
+	case json.Number:
+		return AsInt(string(n))
 	case nil:
 		return 0, true
 	default:
@@ -172,6 +176,8 @@ func AsUint(v any) (uint64, bool) {
 	case string:
 		res, err := strconv.ParseUint(n, 0, 64)
 		return res, err == nil
+	case json.Number:
+		return AsUint(string(n))
 	case nil:
 		return 0, true
 	}
@@ -210,6 +216,15 @@ func AsFloat(v any) (float64, bool) {
 	case string:
 		res, err := strconv.ParseFloat(n, 64)
 		return res, err == nil
+	case json.Number:
+		return AsFloat(string(n))
+	case json.RawMessage:
+		var v any
+		err := json.Unmarshal(n, &v)
+		if err != nil {
+			return 0, false
+		}
+		return AsFloat(v)
 	case nil:
 		return 0, true
 	}
@@ -254,10 +269,10 @@ func AsNumber(v any) (any, bool) {
 		if res, err := strconv.ParseInt(n, 0, 64); err == nil {
 			return res, true
 		}
-		if res, err := strconv.ParseFloat(n, 64); err == nil {
+		if res, err := strconv.ParseUint(n, 0, 64); err == nil {
 			return res, true
 		}
-		if res, err := strconv.ParseUint(n, 0, 64); err == nil {
+		if res, err := strconv.ParseFloat(n, 64); err == nil {
 			return res, true
 		}
 		return AsBool(n), false
@@ -266,6 +281,8 @@ func AsNumber(v any) (any, bool) {
 			return nil, false
 		}
 		return AsNumber(n.String())
+	case json.Number:
+		return AsNumber(string(n))
 	}
 
 	return nil, false

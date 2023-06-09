@@ -3,6 +3,7 @@ package typutil
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math"
 	"net/url"
@@ -46,12 +47,12 @@ func AsBool(v any) bool {
 			return false
 		}
 		return true
-	case map[string]interface{}:
+	case map[string]any:
 		if len(r) > 0 {
 			return true
 		}
 		return false
-	case []interface{}:
+	case []any:
 		if len(r) > 0 {
 			return true
 		}
@@ -59,8 +60,8 @@ func AsBool(v any) bool {
 	case json.Number:
 		return AsBool(string(r))
 	case json.RawMessage:
-		// convert to interface{}, re-run through the process
-		var x interface{}
+		// convert to any, re-run through the process
+		var x any
 		err := json.Unmarshal(r, &x)
 		if err != nil {
 			return false
@@ -286,4 +287,45 @@ func AsNumber(v any) (any, bool) {
 	}
 
 	return nil, false
+}
+
+func AsString(v any) (string, bool) {
+	switch s := v.(type) {
+	case string:
+		return s, true
+	case []byte:
+		return string(s), true
+	case json.RawMessage:
+		return string(s), true
+	case *bytes.Buffer:
+		return s.String(), true
+	case int64:
+		return strconv.FormatInt(s, 64), true
+	case int:
+		return strconv.FormatInt(int64(s), 64), true
+	case int32:
+		return strconv.FormatInt(int64(s), 64), true
+	case int16:
+		return strconv.FormatInt(int64(s), 64), true
+	case int8:
+		return strconv.FormatInt(int64(s), 64), true
+	case uint64:
+		return strconv.FormatUint(s, 64), true
+	case uint:
+		return strconv.FormatUint(uint64(s), 64), true
+	case uint32:
+		return strconv.FormatUint(uint64(s), 64), true
+	case uint16:
+		return strconv.FormatUint(uint64(s), 64), true
+	case uint8:
+		return strconv.FormatUint(uint64(s), 64), true
+	case bool:
+		if s {
+			return "1", true
+		} else {
+			return "0", true
+		}
+	default:
+		return fmt.Sprintf("%v", v), false
+	}
 }

@@ -300,25 +300,25 @@ func AsString(v any) (string, bool) {
 	case *bytes.Buffer:
 		return s.String(), true
 	case int64:
-		return strconv.FormatInt(s, 64), true
+		return strconv.FormatInt(s, 10), true
 	case int:
-		return strconv.FormatInt(int64(s), 64), true
+		return strconv.FormatInt(int64(s), 10), true
 	case int32:
-		return strconv.FormatInt(int64(s), 64), true
+		return strconv.FormatInt(int64(s), 10), true
 	case int16:
-		return strconv.FormatInt(int64(s), 64), true
+		return strconv.FormatInt(int64(s), 10), true
 	case int8:
-		return strconv.FormatInt(int64(s), 64), true
+		return strconv.FormatInt(int64(s), 10), true
 	case uint64:
-		return strconv.FormatUint(s, 64), true
+		return strconv.FormatUint(s, 10), true
 	case uint:
-		return strconv.FormatUint(uint64(s), 64), true
+		return strconv.FormatUint(uint64(s), 10), true
 	case uint32:
-		return strconv.FormatUint(uint64(s), 64), true
+		return strconv.FormatUint(uint64(s), 10), true
 	case uint16:
-		return strconv.FormatUint(uint64(s), 64), true
+		return strconv.FormatUint(uint64(s), 10), true
 	case uint8:
-		return strconv.FormatUint(uint64(s), 64), true
+		return strconv.FormatUint(uint64(s), 10), true
 	case bool:
 		if s {
 			return "1", true

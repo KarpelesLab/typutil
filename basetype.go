@@ -1,10 +1,22 @@
 package typutil
 
-import "reflect"
+import (
+	"encoding/json"
+	"reflect"
+
+	"github.com/KarpelesLab/pjson"
+)
 
 // BaseType attempts to convert v into its base type, that is if v is a type
 // that is defined as `type foo string`, a simple string will be returned.
 func BaseType(v any) any {
+	switch o := v.(type) {
+	case json.RawMessage:
+		json.Unmarshal(o, &v)
+	case pjson.RawMessage:
+		pjson.Unmarshal(o, &v)
+	}
+
 	val := reflect.ValueOf(v)
 	switch val.Kind() {
 	case reflect.Bool:

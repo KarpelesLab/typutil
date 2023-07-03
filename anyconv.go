@@ -12,6 +12,7 @@ import (
 
 // some helper functions related to numbers
 func AsBool(v any) bool {
+	v = BaseType(v)
 	switch r := v.(type) {
 	case bool:
 		return r
@@ -57,16 +58,6 @@ func AsBool(v any) bool {
 			return true
 		}
 		return false
-	case json.Number:
-		return AsBool(string(r))
-	case json.RawMessage:
-		// convert to any, re-run through the process
-		var x any
-		err := json.Unmarshal(r, &x)
-		if err != nil {
-			return false
-		}
-		return AsBool(x)
 	case url.Values:
 		return len(r) > 0
 	default:
@@ -75,6 +66,7 @@ func AsBool(v any) bool {
 }
 
 func AsInt(v any) (int64, bool) {
+	v = BaseType(v)
 	switch n := v.(type) {
 	case int8:
 		return int64(n), true
@@ -133,6 +125,7 @@ func AsInt(v any) (int64, bool) {
 }
 
 func AsUint(v any) (uint64, bool) {
+	v = BaseType(v)
 	switch n := v.(type) {
 	case int8:
 		return uint64(n), n > 0
@@ -187,6 +180,7 @@ func AsUint(v any) (uint64, bool) {
 }
 
 func AsFloat(v any) (float64, bool) {
+	v = BaseType(v)
 	switch n := v.(type) {
 	case int8:
 		return float64(n), true
@@ -217,15 +211,6 @@ func AsFloat(v any) (float64, bool) {
 	case string:
 		res, err := strconv.ParseFloat(n, 64)
 		return res, err == nil
-	case json.Number:
-		return AsFloat(string(n))
-	case json.RawMessage:
-		var v any
-		err := json.Unmarshal(n, &v)
-		if err != nil {
-			return 0, false
-		}
-		return AsFloat(v)
 	case nil:
 		return 0, true
 	}
@@ -235,6 +220,7 @@ func AsFloat(v any) (float64, bool) {
 }
 
 func AsNumber(v any) (any, bool) {
+	v = BaseType(v)
 	switch n := v.(type) {
 	case int8:
 		return int64(n), true
@@ -282,20 +268,17 @@ func AsNumber(v any) (any, bool) {
 			return nil, false
 		}
 		return AsNumber(n.String())
-	case json.Number:
-		return AsNumber(string(n))
 	}
 
 	return nil, false
 }
 
 func AsString(v any) (string, bool) {
+	v = BaseType(v)
 	switch s := v.(type) {
 	case string:
 		return s, true
 	case []byte:
-		return string(s), true
-	case json.RawMessage:
 		return string(s), true
 	case *bytes.Buffer:
 		return s.String(), true

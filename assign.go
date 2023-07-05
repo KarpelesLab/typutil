@@ -57,16 +57,8 @@ func Assign(dst, src any) error {
 	// grab dst value
 	vdst := reflect.ValueOf(dst)
 	// check if pointer (required)
-	if vdst.Kind() != reflect.Pointer {
+	if vdst.Kind() != reflect.Pointer || vdst.IsNil() {
 		return ErrAssignDestNotPointer
-	}
-	// make sure dst is not nil and is not a pointer
-	for vdst.Kind() == reflect.Pointer {
-		if vdst.IsNil() {
-			vdst.Set(reflect.New(vdst.Type().Elem()))
-		}
-		// grab value of pointer
-		vdst = vdst.Elem()
 	}
 	// grab source
 	vsrc := reflect.ValueOf(src)
@@ -89,6 +81,10 @@ func newAssignFunc(dstt reflect.Type, srct reflect.Type) assignFunc {
 	if srct.ConvertibleTo(dstt) {
 		return convertSet
 	}
+	switch dstt.Kind() {
+	case reflect.Pointer:
+		return newNewAndAssign(dstt, srct)
+	}
 	return nil
 }
 
@@ -101,4 +97,19 @@ func convertSet(dst, src reflect.Value) error {
 	v := src.Convert(dst.Type())
 	dst.Set(v)
 	return nil
+}
+
+func newNewAndAssign(dstt reflect.Type, srct reflect.Type) assignFunc {
+	subt := dstt.Elem()
+	subf := newAssignFunc(subt, srct)
+	if subf == nil {
+		return nil
+	}
+
+	return func(dst, src reflect.Value) error {
+		if dst.IsNil() {
+			dst.Set(reflect.New(subt))
+		}
+		return subf(dst.Elem(), src)
+	}
 }

@@ -57,4 +57,22 @@ func TestAssignStruct(t *testing.T) {
 	if b.C != 123456 {
 		t.Errorf("struct to struct C invalid value: %v", b.C)
 	}
+
+	// test assign from map
+	b = nil
+	err = typutil.Assign(&b, map[string]any{"A": "from a map", "B": 99, "C": 123.456})
+	if err != nil {
+		t.Errorf("map to struct assign failed: %s", err)
+		return
+	}
+
+	if b.A != "from a map" {
+		t.Errorf("map to struct string invalid")
+	}
+	if b.B != 99 {
+		t.Errorf("map to struct B invalid")
+	}
+	if b.C != 123 {
+		t.Errorf("map to struct C invalid")
+	}
 }

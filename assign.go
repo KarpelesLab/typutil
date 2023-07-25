@@ -74,6 +74,21 @@ func Assign(dst, src any) error {
 	return f(vdst, vsrc)
 }
 
+func assignReflectValues(vdst, vsrc reflect.Value) error {
+	if vdst.Kind() == reflect.Interface {
+		vdst = vdst.Elem()
+	}
+	if vsrc.Kind() == reflect.Interface {
+		vsrc = vsrc.Elem()
+	}
+
+	f := getAssignFunc(vdst.Type(), vsrc.Type())
+	if f == nil {
+		return fmt.Errorf("%w: %s to %s", ErrAssignImpossible, vsrc.Type(), vdst.Type())
+	}
+	return f(vdst, vsrc)
+}
+
 func newAssignFunc(dstt, srct reflect.Type) assignFunc {
 	if srct.AssignableTo(dstt) {
 		return simpleSet
@@ -88,12 +103,22 @@ func newAssignFunc(dstt, srct reflect.Type) assignFunc {
 	switch dstt.Kind() {
 	case reflect.Pointer:
 		return newNewAndAssign(dstt, srct)
+	case reflect.String:
+		return makeAssignToString(dstt, srct)
+	case reflect.Float32, reflect.Float64:
+		return makeAssignToFloat(dstt, srct)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return makeAssignToInt(dstt, srct)
 	case reflect.Struct:
 		switch srct.Kind() {
 		case reflect.Struct:
 			return makeAssignStructToStruct(dstt, srct)
+		case reflect.Map:
+			return makeAssignMapToStruct(dstt, srct)
 		}
 	}
+
+	//log.Printf("[assign] failed to generate function to convert from %s to %s", srct, dstt)
 	return nil
 }
 
@@ -159,7 +184,44 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
 	}
 }
 
-func newNewAndAssign(dstt reflect.Type, srct reflect.Type) assignFunc {
+func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
+	// srct is a map
+	switch srct.Key().Kind() {
+	case reflect.String:
+		// we index dstt's fields by string
+		fields := make(map[string]*assignStructInOut)
+		// TODO process tag
+		mapvtype := srct.Elem()
+
+		for i := 0; i < dstt.NumField(); i++ {
+			f := dstt.Field(i)
+			fnc := newAssignFunc(f.Type, mapvtype)
+			if fnc == nil {
+				return nil
+			}
+			fields[f.Name] = &assignStructInOut{out: i, set: fnc}
+		}
+
+		return func(dst, src reflect.Value) error {
+			iter := src.MapRange()
+			for iter.Next() {
+				f, ok := fields[iter.Key().String()]
+				if !ok {
+					continue
+				}
+				if err := f.set(dst.Field(f.out), iter.Value()); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	default:
+		// unsupported map type
+		return nil
+	}
+}
+
+func newNewAndAssign(dstt, srct reflect.Type) assignFunc {
 	subt := dstt.Elem()
 	subf := newAssignFunc(subt, srct)
 	if subf == nil {
@@ -186,5 +248,65 @@ func ptrReadAndAssign(dstt, srct reflect.Type) assignFunc {
 			return ErrNilPointerRead
 		}
 		return subf(dst, src.Elem())
+	}
+}
+
+func makeAssignToString(dstt, srct reflect.Type) assignFunc {
+	switch srct.Kind() {
+	case reflect.String:
+		return func(dst, src reflect.Value) error {
+			dst.Set(src)
+			return nil
+		}
+	default:
+		// perform runtime conversion
+		return func(dst, src reflect.Value) error {
+			str, ok := AsString(src.Interface())
+			if !ok {
+				return fmt.Errorf("failed to convert %s to string", src.Type())
+			}
+			dst.SetString(str)
+			return nil
+		}
+	}
+}
+
+func makeAssignToFloat(dstt, srct reflect.Type) assignFunc {
+	switch srct.Kind() {
+	case reflect.Float32, reflect.Float64:
+		return func(dst, src reflect.Value) error {
+			dst.Set(src)
+			return nil
+		}
+	default:
+		// perform runtime conversion
+		return func(dst, src reflect.Value) error {
+			v, ok := AsFloat(src.Interface())
+			if !ok {
+				return fmt.Errorf("failed to convert %s to float", src.Type())
+			}
+			dst.SetFloat(v)
+			return nil
+		}
+	}
+}
+
+func makeAssignToInt(dstt, srct reflect.Type) assignFunc {
+	switch srct.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return func(dst, src reflect.Value) error {
+			dst.Set(src)
+			return nil
+		}
+	default:
+		// perform runtime conversion
+		return func(dst, src reflect.Value) error {
+			v, ok := AsInt(src.Interface())
+			if !ok {
+				return fmt.Errorf("failed to convert %s to int", src.Type())
+			}
+			dst.SetInt(v)
+			return nil
+		}
 	}
 }

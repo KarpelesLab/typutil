@@ -81,6 +81,10 @@ func newAssignFunc(dstt, srct reflect.Type) assignFunc {
 	if srct.ConvertibleTo(dstt) {
 		return convertSet
 	}
+	if srct.Kind() == reflect.Pointer {
+		return ptrReadAndAssign(dstt, srct)
+	}
+
 	switch dstt.Kind() {
 	case reflect.Pointer:
 		return newNewAndAssign(dstt, srct)
@@ -88,8 +92,6 @@ func newAssignFunc(dstt, srct reflect.Type) assignFunc {
 		switch srct.Kind() {
 		case reflect.Struct:
 			return makeAssignStructToStruct(dstt, srct)
-		case reflect.Pointer:
-			return ptrReadAndAssign(dstt, srct)
 		}
 	}
 	return nil

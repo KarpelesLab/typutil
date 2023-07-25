@@ -1,6 +1,7 @@
 package typutil
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"reflect"
@@ -122,10 +123,14 @@ func newAssignFunc(dstt, srct reflect.Type) assignFunc {
 	switch dstt.Kind() {
 	case reflect.String:
 		return makeAssignToString(dstt, srct)
+	case reflect.Bool:
+		return makeAssignToBool(dstt, srct)
 	case reflect.Float32, reflect.Float64:
 		return makeAssignToFloat(dstt, srct)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		return makeAssignToInt(dstt, srct)
+	case reflect.Slice:
+		return makeAssignToSlice(dstt, srct)
 	case reflect.Struct:
 		switch srct.Kind() {
 		case reflect.Struct:
@@ -329,6 +334,15 @@ func makeAssignToString(dstt, srct reflect.Type) assignFunc {
 			dst.Set(src)
 			return nil
 		}
+	case reflect.Slice:
+		if srct.Elem().Kind() == reflect.Uint8 {
+			// encode to base64
+			return func(dst, src reflect.Value) error {
+				dst.SetString(base64.StdEncoding.EncodeToString(src.Bytes()))
+				return nil
+			}
+		}
+		fallthrough
 	default:
 		// perform runtime conversion
 		return func(dst, src reflect.Value) error {
@@ -339,6 +353,57 @@ func makeAssignToString(dstt, srct reflect.Type) assignFunc {
 			dst.SetString(str)
 			return nil
 		}
+	}
+}
+
+func makeAssignToSlice(dstt, srct reflect.Type) assignFunc {
+	if dstt.Elem().Kind() == reflect.Uint8 {
+		// []byte = possibly a string
+		return makeAssignToByteSlice(dstt, srct)
+	}
+
+	switch srct.Kind() {
+	case reflect.Slice:
+		// slice→slice
+		f := getAssignFunc(dstt.Elem(), srct.Elem())
+		if f == nil {
+			return nil
+		}
+
+		return func(dst, src reflect.Value) error {
+			ln := src.Len()
+			if dst.Cap() < ln {
+				dst.Grow(ln - dst.Cap())
+			}
+			dst.SetLen(ln)
+			//dst.Set(reflect.MakeSlice(dstt.Elem(), ln, ln))
+			for i := 0; i < ln; i++ {
+				if err := f(dst.Index(i), src.Index(i)); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	default:
+		return nil // ???
+	}
+}
+
+func makeAssignToByteSlice(dstt, srct reflect.Type) assignFunc {
+	switch srct.Kind() {
+	case reflect.String:
+		// assume base64 encoded
+		return func(dst, src reflect.Value) error {
+			dec, err := base64.StdEncoding.DecodeString(src.String())
+			if err != nil {
+				return err
+			}
+			dst.SetBytes(dec)
+			return nil
+		}
+	default:
+		// ???
+		return nil
 	}
 }
 
@@ -377,6 +442,22 @@ func makeAssignToInt(dstt, srct reflect.Type) assignFunc {
 				return fmt.Errorf("failed to convert %s to int", src.Type())
 			}
 			dst.SetInt(v)
+			return nil
+		}
+	}
+}
+
+func makeAssignToBool(dstt, srct reflect.Type) assignFunc {
+	switch srct.Kind() {
+	case reflect.Bool:
+		return func(dst, src reflect.Value) error {
+			dst.Set(src)
+			return nil
+		}
+	default:
+		// perform runtime conversion
+		return func(dst, src reflect.Value) error {
+			dst.SetBool(AsBool(src.Interface()))
 			return nil
 		}
 	}

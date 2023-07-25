@@ -78,6 +78,9 @@ func assignReflectValues(vdst, vsrc reflect.Value) error {
 	if vsrc.Kind() == reflect.Interface {
 		vsrc = vsrc.Elem()
 	}
+	if vdst.Kind() == reflect.Interface {
+		vdst = vdst.Elem()
+	}
 
 	f := getAssignFunc(vdst.Type(), vsrc.Type())
 	if f == nil {

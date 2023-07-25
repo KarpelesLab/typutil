@@ -52,8 +52,7 @@ func (v *validatorObject) run(val any) error {
 	if err != nil {
 		return err
 	}
-
-	res := v.fnc.Call([]reflect.Value{valT})
+	res := v.fnc.Call([]reflect.Value{valT.Elem()})
 	if res[0].IsNil() {
 		return nil
 	}
@@ -67,7 +66,7 @@ func (v *validatorObject) runReflectValue(val reflect.Value) error {
 		return err
 	}
 
-	res := v.fnc.Call([]reflect.Value{valT})
+	res := v.fnc.Call([]reflect.Value{valT.Elem()})
 	if res[0].IsNil() {
 		return nil
 	}

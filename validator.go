@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 )
 
 type validatorObject struct {
@@ -28,6 +29,42 @@ func SetValidator[T any](validator string, fnc func(T) error) {
 	validators[validator] = &validatorObject{fnc: vfnc, arg: argt}
 }
 
+type validatorData struct {
+	fld  int // field index
+	vals []*validatorObject
+}
+
+var (
+	validatorCache   = make(map[reflect.Type][]*validatorData)
+	validatorCacheLk sync.Mutex
+)
+
+func getValidatorForType(t reflect.Type) []*validatorData {
+	validatorCacheLk.Lock()
+	defer validatorCacheLk.Unlock()
+
+	val, ok := validatorCache[t]
+	if ok {
+		return val
+	}
+
+	n := t.NumField()
+	for i := 0; i < n; i++ {
+		f := t.Field(i)
+		validators, err := getValidators(f.Tag.Get("validator"))
+		if err != nil {
+			// skip
+			continue
+		}
+		if len(validators) == 0 {
+			continue
+		}
+		val = append(val, &validatorData{fld: i, vals: validators})
+	}
+	validatorCache[t] = val
+	return val
+}
+
 // Validate accept any struct as argument and returns if the struct is valid. The parameter should be a pointer
 // to the struct so validators can edit values.
 func Validate(obj any) error {
@@ -43,15 +80,13 @@ func Validate(obj any) error {
 	}
 
 	t := v.Type()
-	n := t.NumField()
-	for i := 0; i < n; i++ {
-		f := t.Field(i)
-		validators, err := getValidators(f.Tag.Get("validator"))
-		if err != nil {
-			return err
-		}
-		for _, sub := range validators {
-			err = sub.runReflectValue(v.Field(i).Addr())
+	val := getValidatorForType(t)
+
+	var err error
+	for _, vd := range val {
+		f := v.Field(vd.fld).Addr()
+		for _, sub := range vd.vals {
+			err = sub.runReflectValue(f)
 			if err != nil {
 				return err
 			}

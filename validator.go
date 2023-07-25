@@ -12,7 +12,10 @@ type validatorObject struct {
 	arg reflect.Type
 }
 
-var validators = map[string]*validatorObject{}
+var (
+	validators   = map[string]*validatorObject{}
+	validatorsLk sync.RWMutex
+)
 
 func init() {
 	SetValidator("notempty", validateNotEmpty)
@@ -21,10 +24,13 @@ func init() {
 // A validator func is a function that takes one argument (the value being validated) and returns either nil or an error
 // If the function accepts a modifiable value (a pointer for example) it might be possible to modify the value during validation
 
-// SetValidator sets the given function as validator with the given name
+// SetValidator sets the given function as validator with the given name. This should be typically called in init()
 func SetValidator[T any](validator string, fnc func(T) error) {
 	vfnc := reflect.ValueOf(fnc)
 	argt := reflect.TypeOf((*T)(nil)).Elem()
+
+	validatorsLk.Lock()
+	defer validatorsLk.Unlock()
 
 	validators[validator] = &validatorObject{fnc: vfnc, arg: argt}
 }
@@ -98,12 +104,16 @@ func Validate(obj any) error {
 	return getValidatorForType(v.Type()).validate(v)
 }
 
+// getValidators returns the validator objects for a given validator tag value. Multiple validators can be defined
 func getValidators(s string) ([]*validatorObject, error) {
 	if s == "" {
 		return nil, nil
 	}
 	a := strings.Split(s, ",")
 	res := make([]*validatorObject, 0, len(a))
+
+	validatorsLk.RLock()
+	defer validatorsLk.RUnlock()
 
 	for _, v := range a {
 		o, ok := validators[v]

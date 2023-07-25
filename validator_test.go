@@ -28,6 +28,17 @@ func TestValidator(t *testing.T) {
 	if a.A != "hello" {
 		t.Errorf("assign failed")
 	}
+
+	err = typutil.Validate(a)
+	if err != nil {
+		t.Errorf("validate failed: %s", err)
+	}
+
+	a.A = ""
+	err = typutil.Validate(a)
+	if err == nil || err != typutil.ErrEmptyValue {
+		t.Errorf("validate error failed: %v", err)
+	}
 }
 
 type valB struct {
@@ -50,5 +61,14 @@ func TestPtrValidator(t *testing.T) {
 
 	if b.X != "VALUE" {
 		t.Errorf("validator alter failed, got %s", b.X)
+	}
+
+	b.X = "another value"
+	err = typutil.Validate(b)
+	if err != nil {
+		t.Errorf("failed to validate struct: %s", err)
+	}
+	if b.X != "ANOTHER VALUE" {
+		t.Errorf("unexpected X value: %s", b.X)
 	}
 }

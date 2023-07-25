@@ -140,6 +140,8 @@ func newAssignFunc(dstt, srct reflect.Type) assignFunc {
 		return makeAssignToInt(dstt, srct)
 	case reflect.Slice:
 		return makeAssignToSlice(dstt, srct)
+	case reflect.Map:
+		return makeAssignToMap(dstt, srct)
 	case reflect.Struct:
 		switch srct.Kind() {
 		case reflect.Struct:
@@ -469,6 +471,76 @@ func makeAssignToBool(dstt, srct reflect.Type) assignFunc {
 			dst.SetBool(AsBool(src.Interface()))
 			return nil
 		}
+	}
+}
+
+func makeAssignToMap(dstt, srct reflect.Type) assignFunc {
+	switch srct.Kind() {
+	case reflect.Map:
+		kf := getAssignFunc(dstt.Key(), srct.Key())
+		vf := getAssignFunc(dstt.Elem(), srct.Elem())
+
+		if kf == nil || vf == nil {
+			return nil
+		}
+
+		return func(dst, src reflect.Value) error {
+			dst.Set(reflect.MakeMap(dstt))
+			iter := src.MapRange()
+			for iter.Next() {
+				dk := reflect.New(dstt.Key()).Elem()
+				dv := reflect.New(dstt.Elem()).Elem()
+				if err := kf(dk, iter.Key()); err != nil {
+					return err
+				}
+				if err := vf(dv, iter.Value()); err != nil {
+					return err
+				}
+				dst.SetMapIndex(dk, dv)
+			}
+			return nil
+		}
+	case reflect.Struct:
+		if dstt.Key().Kind() != reflect.String {
+			// we require map converted from struct to have a string key
+			return nil
+		}
+		subt := dstt.Elem()
+
+		fieldsIn := make(map[string]*assignStructInOut)
+		for i := 0; i < srct.NumField(); i++ {
+			f := srct.Field(i)
+			name := f.Name
+			if jsonTag := f.Tag.Get("json"); jsonTag != "" {
+				// check if json tag renames field
+				if jsonTag[0] == '-' {
+					continue
+				}
+				if jsonTag[0] != ',' {
+					jsonA := strings.Split(jsonTag, ",")
+					name = jsonA[0]
+				}
+			}
+			fnc := getAssignFunc(subt, f.Type)
+			if fnc == nil {
+				return nil
+			}
+			fieldsIn[name] = &assignStructInOut{in: i, set: fnc}
+		}
+
+		return func(dst, src reflect.Value) error {
+			dst.Set(reflect.MakeMap(dstt))
+			for s, f := range fieldsIn {
+				dv := reflect.New(dstt.Elem()).Elem()
+				if err := f.set(dv, src.Field(f.in)); err != nil {
+					return err
+				}
+				dst.SetMapIndex(reflect.ValueOf(s), dv)
+			}
+			return nil
+		}
+	default:
+		return nil
 	}
 }
 

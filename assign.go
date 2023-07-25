@@ -89,20 +89,36 @@ func assignReflectValues(vdst, vsrc reflect.Value) error {
 	return f(vdst, vsrc)
 }
 
+func ptrCount(t reflect.Type) int {
+	n := 0
+	for t.Kind() == reflect.Pointer {
+		n += 1
+		t = t.Elem()
+	}
+	return n
+}
+
 func newAssignFunc(dstt, srct reflect.Type) assignFunc {
+	//log.Printf("assign func lookup %s → %s", srct, dstt)
 	if srct.AssignableTo(dstt) {
 		return simpleSet
 	}
 	if srct.ConvertibleTo(dstt) {
 		return convertSet
 	}
-	if srct.Kind() == reflect.Pointer {
+
+	srcptrct := ptrCount(srct)
+	dstptrct := ptrCount(dstt)
+	//log.Printf("assign func lookup %s → %s (%d → %d)", srct, dstt, srcptrct, dstptrct)
+
+	// with this we try to adjust src & dst to have the same number of pointer elements so we may have a chance to assign values directly
+	if srcptrct > dstptrct {
 		return ptrReadAndAssign(dstt, srct)
+	} else if dstptrct > 0 {
+		return newNewAndAssign(dstt, srct)
 	}
 
 	switch dstt.Kind() {
-	case reflect.Pointer:
-		return newNewAndAssign(dstt, srct)
 	case reflect.String:
 		return makeAssignToString(dstt, srct)
 	case reflect.Float32, reflect.Float64:
@@ -186,7 +202,7 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
 				return err
 			}
 			for _, v := range f.val {
-				if err := v.runReflectValue(dstf); err != nil {
+				if err := v.runReflectValue(dstf.Addr()); err != nil {
 					return err
 				}
 			}
@@ -229,7 +245,7 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
 					return err
 				}
 				for _, v := range f.val {
-					if err := v.runReflectValue(dstf); err != nil {
+					if err := v.runReflectValue(dstf.Addr()); err != nil {
 						return err
 					}
 				}

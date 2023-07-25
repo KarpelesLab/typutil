@@ -59,15 +59,15 @@ func getValidatorForType(t reflect.Type) structValidator {
 	n := t.NumField()
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
-		validators, err := getValidators(f.Tag.Get("validator"))
+		vals, err := getValidators(f.Tag.Get("validator"))
 		if err != nil {
 			// skip
 			continue
 		}
-		if len(validators) == 0 {
+		if len(vals) == 0 {
 			continue
 		}
-		val = append(val, &fieldValidator{fld: i, vals: validators})
+		val = append(val, &fieldValidator{fld: i, vals: vals})
 	}
 	validatorCache[t] = val
 	return val
@@ -124,19 +124,6 @@ func getValidators(s string) ([]*validatorObject, error) {
 	}
 
 	return res, nil
-}
-
-func (v *validatorObject) run(val any) error {
-	valT := reflect.New(v.arg)
-	err := assignReflectValues(valT, reflect.ValueOf(val))
-	if err != nil {
-		return err
-	}
-	res := v.fnc.Call([]reflect.Value{valT.Elem()})
-	if res[0].IsNil() {
-		return nil
-	}
-	return res[0].Interface().(error)
 }
 
 func (v *validatorObject) runReflectValue(val reflect.Value) error {

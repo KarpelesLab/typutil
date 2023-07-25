@@ -133,6 +133,7 @@ func convertSet(dst, src reflect.Value) error {
 type assignStructInOut struct {
 	in, out int
 	set     assignFunc
+	val     []*validatorObject
 }
 
 type fieldInfo struct {
@@ -142,8 +143,6 @@ type fieldInfo struct {
 
 func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
 	var fields []*assignStructInOut
-
-	// TODO process tag
 
 	fieldsIn := make(map[string]*fieldInfo)
 	for i := 0; i < srct.NumField(); i++ {
@@ -156,6 +155,11 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
 		if !ok {
 			continue
 		}
+		val, err := getValidators(dstf.Tag.Get("validator"))
+		if err != nil {
+			// error
+			return nil
+		}
 
 		fnc := newAssignFunc(dstf.Type, srcf.StructField.Type)
 		if fnc == nil {
@@ -166,6 +170,7 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
 			in:  srcf.idx,
 			out: i,
 			set: fnc,
+			val: val,
 		})
 	}
 
@@ -173,8 +178,14 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
 
 	return func(dst, src reflect.Value) error {
 		for _, f := range fields {
-			if err := f.set(dst.Field(f.out), src.Field(f.in)); err != nil {
+			dstf := dst.Field(f.out)
+			if err := f.set(dstf, src.Field(f.in)); err != nil {
 				return err
+			}
+			for _, v := range f.val {
+				if err := v.runReflectValue(dstf); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -187,7 +198,6 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
 	case reflect.String:
 		// we index dstt's fields by string
 		fields := make(map[string]*assignStructInOut)
-		// TODO process tag
 		mapvtype := srct.Elem()
 
 		for i := 0; i < dstt.NumField(); i++ {
@@ -196,7 +206,12 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
 			if fnc == nil {
 				return nil
 			}
-			fields[f.Name] = &assignStructInOut{out: i, set: fnc}
+			val, err := getValidators(f.Tag.Get("validator"))
+			if err != nil {
+				// error
+				return nil
+			}
+			fields[f.Name] = &assignStructInOut{out: i, set: fnc, val: val}
 		}
 
 		return func(dst, src reflect.Value) error {
@@ -206,8 +221,14 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
 				if !ok {
 					continue
 				}
-				if err := f.set(dst.Field(f.out), iter.Value()); err != nil {
+				dstf := dst.Field(f.out)
+				if err := f.set(dstf, iter.Value()); err != nil {
 					return err
+				}
+				for _, v := range f.val {
+					if err := v.runReflectValue(dstf); err != nil {
+						return err
+					}
 				}
 			}
 			return nil

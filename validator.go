@@ -1,6 +1,10 @@
 package typutil
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+	"strings"
+)
 
 type validatorObject struct {
 	fnc reflect.Value
@@ -24,9 +28,41 @@ func SetValidator[T any](validator string, fnc func(T) error) {
 	validators[validator] = &validatorObject{fnc: vfnc, arg: argt}
 }
 
+func getValidators(s string) ([]*validatorObject, error) {
+	if s == "" {
+		return nil, nil
+	}
+	a := strings.Split(s, ",")
+	res := make([]*validatorObject, 0, len(a))
+
+	for _, v := range a {
+		o, ok := validators[v]
+		if !ok {
+			return res, fmt.Errorf("validator not found: %s", a)
+		}
+		res = append(res, o)
+	}
+
+	return res, nil
+}
+
 func (v *validatorObject) run(val any) error {
 	valT := reflect.New(v.arg)
 	err := assignReflectValues(valT, reflect.ValueOf(val))
+	if err != nil {
+		return err
+	}
+
+	res := v.fnc.Call([]reflect.Value{valT})
+	if res[0].IsNil() {
+		return nil
+	}
+	return res[0].Interface().(error)
+}
+
+func (v *validatorObject) runReflectValue(val reflect.Value) error {
+	valT := reflect.New(v.arg)
+	err := assignReflectValues(valT, val)
 	if err != nil {
 		return err
 	}

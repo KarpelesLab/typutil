@@ -1,8 +1,8 @@
 package typutil
 
 import (
+	"encoding"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -18,9 +18,13 @@ type assignConvType struct {
 
 var assignFuncCache sync.Map // map[assignConvType]assignFunc
 
+type valueScanner interface {
+	Scan(any) error
+}
+
 var (
-	ErrAssignDestNotPointer = errors.New("assign destination must be a pointer")
-	ErrAssignImpossible     = errors.New("the requested assign is not possible")
+	textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+	valueScannerType    = reflect.TypeOf((*valueScanner)(nil)).Elem()
 )
 
 func getAssignFunc(dstt reflect.Type, srct reflect.Type) assignFunc {
@@ -118,6 +122,11 @@ func newAssignFunc(dstt, srct reflect.Type) assignFunc {
 		return ptrReadAndAssign(dstt, srct)
 	} else if dstptrct > 0 {
 		return newNewAndAssign(dstt, srct)
+	}
+
+	// check for interfaces/etc
+	if reflect.PointerTo(dstt).Implements(valueScannerType) {
+		return assignViaScanInterface
 	}
 
 	switch dstt.Kind() {
@@ -461,4 +470,11 @@ func makeAssignToBool(dstt, srct reflect.Type) assignFunc {
 			return nil
 		}
 	}
+}
+
+func assignViaScanInterface(dst, src reflect.Value) error {
+	if !dst.CanAddr() {
+		return ErrDestinationNotAddressable
+	}
+	return dst.Addr().Interface().(valueScanner).Scan(src.Interface())
 }

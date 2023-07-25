@@ -74,7 +74,7 @@ func Assign(dst, src any) error {
 	return f(vdst, vsrc)
 }
 
-func newAssignFunc(dstt reflect.Type, srct reflect.Type) assignFunc {
+func newAssignFunc(dstt, srct reflect.Type) assignFunc {
 	if srct.AssignableTo(dstt) {
 		return simpleSet
 	}
@@ -84,6 +84,13 @@ func newAssignFunc(dstt reflect.Type, srct reflect.Type) assignFunc {
 	switch dstt.Kind() {
 	case reflect.Pointer:
 		return newNewAndAssign(dstt, srct)
+	case reflect.Struct:
+		switch srct.Kind() {
+		case reflect.Struct:
+			return makeAssignStructToStruct(dstt, srct)
+		case reflect.Pointer:
+			return ptrReadAndAssign(dstt, srct)
+		}
 	}
 	return nil
 }
@@ -99,6 +106,57 @@ func convertSet(dst, src reflect.Value) error {
 	return nil
 }
 
+type assignStructInOut struct {
+	in, out int
+	set     assignFunc
+}
+
+type fieldInfo struct {
+	reflect.StructField
+	idx int
+}
+
+func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
+	var fields []*assignStructInOut
+
+	// TODO process tag
+
+	fieldsIn := make(map[string]*fieldInfo)
+	for i := 0; i < srct.NumField(); i++ {
+		f := srct.Field(i)
+		fieldsIn[f.Name] = &fieldInfo{f, i}
+	}
+	for i := 0; i < dstt.NumField(); i++ {
+		dstf := dstt.Field(i)
+		srcf, ok := fieldsIn[dstf.Name]
+		if !ok {
+			continue
+		}
+
+		fnc := newAssignFunc(dstf.Type, srcf.StructField.Type)
+		if fnc == nil {
+			return nil
+		}
+
+		fields = append(fields, &assignStructInOut{
+			in:  srcf.idx,
+			out: i,
+			set: fnc,
+		})
+	}
+
+	fieldsIn = nil
+
+	return func(dst, src reflect.Value) error {
+		for _, f := range fields {
+			if err := f.set(dst.Field(f.out), src.Field(f.in)); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
 func newNewAndAssign(dstt reflect.Type, srct reflect.Type) assignFunc {
 	subt := dstt.Elem()
 	subf := newAssignFunc(subt, srct)
@@ -111,5 +169,20 @@ func newNewAndAssign(dstt reflect.Type, srct reflect.Type) assignFunc {
 			dst.Set(reflect.New(subt))
 		}
 		return subf(dst.Elem(), src)
+	}
+}
+
+func ptrReadAndAssign(dstt, srct reflect.Type) assignFunc {
+	subt := srct.Elem()
+	subf := newAssignFunc(dstt, subt)
+	if subf == nil {
+		return nil
+	}
+
+	return func(dst, src reflect.Value) error {
+		if src.IsNil() {
+			return ErrNilPointerRead
+		}
+		return subf(dst, src.Elem())
 	}
 }

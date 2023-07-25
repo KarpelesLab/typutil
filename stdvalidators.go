@@ -1,9 +1,16 @@
 package typutil
 
-import "reflect"
+import (
+	"errors"
+	"net/netip"
+	"reflect"
+)
 
 func init() {
-	SetValidator("notempty", validateNotEmpty)
+	SetValidator("not_empty", validateNotEmpty)
+	SetValidator("ip_address", validateIpAddr)
+	SetValidator("hex6color", validateHex6Color)
+	SetValidator("hex64", validateHex64)
 }
 
 func validateNotEmpty(v any) error {
@@ -24,4 +31,51 @@ func validateNotEmpty(v any) error {
 		}
 		return ErrEmptyValue
 	}
+}
+
+func validateIpAddr(ip string) error {
+	if ip == "" {
+		return nil
+	}
+	_, err := netip.ParseAddr(ip)
+	return err
+}
+
+func validateHex6Color(color *string) error {
+	// 6 digits hex color, for example 336699
+	// if a # is found in first position it will be trimmed. If value is empty no error will be returned (chain with not_empty to check emptyness too)
+	if *color == "" {
+		return nil
+	}
+	if (*color)[0] == '#' {
+		*color = (*color)[1:]
+	}
+	if len(*color) != 6 {
+		return errors.New("expecting 6 digits hex color")
+	}
+
+	for _, n := range *color {
+		if n < '0' && n > '9' && n < 'a' && n > 'f' && n < 'A' && n > 'F' {
+			return errors.New("invalid hex char in color")
+		}
+	}
+
+	return nil
+}
+
+// validateHex64 ensures a given string is exactly 64 hexadecimal characters, for example a value of a 256bits hash such as sha256
+func validateHex64(hex string) error {
+	if hex == "" {
+		return nil
+	}
+	if len(hex) != 64 {
+		return errors.New("expected 64 hex chars")
+	}
+	for _, n := range hex {
+		if n < '0' && n > '9' && n < 'a' && n > 'f' && n < 'A' && n > 'F' {
+			return errors.New("invalid hex char")
+		}
+	}
+
+	return nil
 }

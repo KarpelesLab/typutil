@@ -8,7 +8,7 @@ import (
 )
 
 type valA struct {
-	A string `validator:"notempty"`
+	A string `validator:"not_empty"`
 }
 
 func TestValidator(t *testing.T) {

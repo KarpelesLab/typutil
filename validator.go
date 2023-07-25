@@ -17,10 +17,6 @@ var (
 	validatorsLk sync.RWMutex
 )
 
-func init() {
-	SetValidator("notempty", validateNotEmpty)
-}
-
 // A validator func is a function that takes one argument (the value being validated) and returns either nil or an error
 // If the function accepts a modifiable value (a pointer for example) it might be possible to modify the value during validation
 
@@ -33,6 +29,28 @@ func SetValidator[T any](validator string, fnc func(T) error) {
 	defer validatorsLk.Unlock()
 
 	validators[validator] = &validatorObject{fnc: vfnc, arg: argt}
+}
+
+// getValidators returns the validator objects for a given validator tag value. Multiple validators can be defined
+func getValidators(s string) ([]*validatorObject, error) {
+	if s == "" {
+		return nil, nil
+	}
+	a := strings.Split(s, ",")
+	res := make([]*validatorObject, 0, len(a))
+
+	validatorsLk.RLock()
+	defer validatorsLk.RUnlock()
+
+	for _, v := range a {
+		o, ok := validators[v]
+		if !ok {
+			return res, fmt.Errorf("validator not found: %s", a)
+		}
+		res = append(res, o)
+	}
+
+	return res, nil
 }
 
 type fieldValidator struct {
@@ -50,6 +68,10 @@ var (
 func getValidatorForType(t reflect.Type) structValidator {
 	validatorCacheLk.Lock()
 	defer validatorCacheLk.Unlock()
+
+	if t.Kind() != reflect.Struct {
+		return nil
+	}
 
 	val, ok := validatorCache[t]
 	if ok {
@@ -104,28 +126,6 @@ func Validate(obj any) error {
 	return getValidatorForType(v.Type()).validate(v)
 }
 
-// getValidators returns the validator objects for a given validator tag value. Multiple validators can be defined
-func getValidators(s string) ([]*validatorObject, error) {
-	if s == "" {
-		return nil, nil
-	}
-	a := strings.Split(s, ",")
-	res := make([]*validatorObject, 0, len(a))
-
-	validatorsLk.RLock()
-	defer validatorsLk.RUnlock()
-
-	for _, v := range a {
-		o, ok := validators[v]
-		if !ok {
-			return res, fmt.Errorf("validator not found: %s", a)
-		}
-		res = append(res, o)
-	}
-
-	return res, nil
-}
-
 func (v *validatorObject) runReflectValue(val reflect.Value) error {
 	valT := reflect.New(v.arg)
 	err := assignReflectValues(valT, val)
@@ -138,24 +138,4 @@ func (v *validatorObject) runReflectValue(val reflect.Value) error {
 		return nil
 	}
 	return res[0].Interface().(error)
-}
-
-func validateNotEmpty(v any) error {
-	switch t := v.(type) {
-	case string:
-		if len(t) == 0 {
-			return ErrEmptyValue
-		}
-		return nil
-	default:
-		s := reflect.ValueOf(v)
-		if s.Kind() == reflect.Pointer {
-			return validateNotEmpty(s.Elem().Interface())
-		}
-		// AsBool will return true if value is non zero, non empty
-		if AsBool(v) {
-			return nil
-		}
-		return ErrEmptyValue
-	}
 }

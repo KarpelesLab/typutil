@@ -126,7 +126,7 @@ func newAssignFunc(dstt, srct reflect.Type) assignFunc {
 
 	// check for interfaces/etc
 	if reflect.PointerTo(dstt).Implements(valueScannerType) {
-		return assignViaScanInterface
+		return makeAssignScanIntf(dstt, srct)
 	}
 
 	switch dstt.Kind() {
@@ -532,9 +532,18 @@ func makeAssignToMap(dstt, srct reflect.Type) assignFunc {
 	}
 }
 
-func assignViaScanInterface(dst, src reflect.Value) error {
-	if !dst.CanAddr() {
-		return ErrDestinationNotAddressable
+func makeAssignScanIntf(dstt, srct reflect.Type) assignFunc {
+	validator := getValidatorForType(dstt)
+
+	return func(dst, src reflect.Value) error {
+		if !dst.CanAddr() {
+			return ErrDestinationNotAddressable
+		}
+		err := dst.Addr().Interface().(valueScanner).Scan(src.Interface())
+		if err != nil {
+			return err
+		}
+
+		return validator.validate(dst)
 	}
-	return dst.Addr().Interface().(valueScanner).Scan(src.Interface())
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 )
 
@@ -166,11 +167,33 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
 	fieldsIn := make(map[string]*fieldInfo)
 	for i := 0; i < srct.NumField(); i++ {
 		f := srct.Field(i)
-		fieldsIn[f.Name] = &fieldInfo{f, i}
+		name := f.Name
+		if jsonTag := f.Tag.Get("json"); jsonTag != "" {
+			// check if json tag renames field
+			if jsonTag[0] == '-' {
+				continue
+			}
+			if jsonTag[0] != ',' {
+				jsonA := strings.Split(jsonTag, ",")
+				name = jsonA[0]
+			}
+		}
+		fieldsIn[name] = &fieldInfo{f, i}
 	}
 	for i := 0; i < dstt.NumField(); i++ {
 		dstf := dstt.Field(i)
-		srcf, ok := fieldsIn[dstf.Name]
+		name := dstf.Name
+		if jsonTag := dstf.Tag.Get("json"); jsonTag != "" {
+			// check if json tag renames field
+			if jsonTag[0] == '-' {
+				continue
+			}
+			if jsonTag[0] != ',' {
+				jsonA := strings.Split(jsonTag, ",")
+				name = jsonA[0]
+			}
+		}
+		srcf, ok := fieldsIn[name]
 		if !ok {
 			continue
 		}
@@ -230,7 +253,18 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
 				// error
 				return nil
 			}
-			fields[f.Name] = &assignStructInOut{out: i, set: fnc, val: val}
+			name := f.Name
+			if jsonTag := f.Tag.Get("json"); jsonTag != "" {
+				// check if json tag renames field
+				if jsonTag[0] == '-' {
+					continue
+				}
+				if jsonTag[0] != ',' {
+					jsonA := strings.Split(jsonTag, ",")
+					name = jsonA[0]
+				}
+			}
+			fields[name] = &assignStructInOut{out: i, set: fnc, val: val}
 		}
 
 		return func(dst, src reflect.Value) error {

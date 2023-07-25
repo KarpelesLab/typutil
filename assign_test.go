@@ -28,13 +28,13 @@ func TestAssignSimple(t *testing.T) {
 
 type objA struct {
 	A string
-	B int
+	B int `json:"X"`
 	C float64
 }
 
 type objB struct {
 	A string
-	B float64
+	B float64 `json:"X"`
 	C int32
 }
 
@@ -60,7 +60,7 @@ func TestAssignStruct(t *testing.T) {
 
 	// test assign from map
 	b = nil
-	err = typutil.Assign(&b, map[string]any{"A": "from a map", "B": 99, "C": 123.456})
+	err = typutil.Assign(&b, map[string]any{"A": "from a map", "X": 99, "C": 123.456})
 	if err != nil {
 		t.Errorf("map to struct assign failed: %s", err)
 		return

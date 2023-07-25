@@ -169,7 +169,6 @@ func convertSet(dst, src reflect.Value) error {
 type assignStructInOut struct {
 	in, out int
 	set     assignFunc
-	val     []*validatorObject
 }
 
 type fieldInfo struct {
@@ -213,11 +212,6 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
 		if !ok {
 			continue
 		}
-		val, err := getValidators(dstf.Tag.Get("validator"))
-		if err != nil {
-			// error
-			return nil
-		}
 
 		fnc := newAssignFunc(dstf.Type, srcf.StructField.Type)
 		if fnc == nil {
@@ -228,11 +222,12 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
 			in:  srcf.idx,
 			out: i,
 			set: fnc,
-			val: val,
 		})
 	}
 
 	fieldsIn = nil
+
+	validator := getValidatorForType(dstt)
 
 	return func(dst, src reflect.Value) error {
 		for _, f := range fields {
@@ -240,11 +235,9 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
 			if err := f.set(dstf, src.Field(f.in)); err != nil {
 				return err
 			}
-			for _, v := range f.val {
-				if err := v.runReflectValue(dstf.Addr()); err != nil {
-					return err
-				}
-			}
+		}
+		if err := validator.validate(dst); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -264,11 +257,6 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
 			if fnc == nil {
 				return nil
 			}
-			val, err := getValidators(f.Tag.Get("validator"))
-			if err != nil {
-				// error
-				return nil
-			}
 			name := f.Name
 			if jsonTag := f.Tag.Get("json"); jsonTag != "" {
 				// check if json tag renames field
@@ -280,8 +268,10 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
 					name = jsonA[0]
 				}
 			}
-			fields[name] = &assignStructInOut{out: i, set: fnc, val: val}
+			fields[name] = &assignStructInOut{out: i, set: fnc}
 		}
+
+		validator := getValidatorForType(dstt)
 
 		return func(dst, src reflect.Value) error {
 			iter := src.MapRange()
@@ -294,11 +284,9 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
 				if err := f.set(dstf, iter.Value()); err != nil {
 					return err
 				}
-				for _, v := range f.val {
-					if err := v.runReflectValue(dstf.Addr()); err != nil {
-						return err
-					}
-				}
+			}
+			if err := validator.validate(dst); err != nil {
+				return err
 			}
 			return nil
 		}

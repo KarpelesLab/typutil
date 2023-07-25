@@ -75,9 +75,6 @@ func Assign(dst, src any) error {
 }
 
 func assignReflectValues(vdst, vsrc reflect.Value) error {
-	if vdst.Kind() == reflect.Interface {
-		vdst = vdst.Elem()
-	}
 	if vsrc.Kind() == reflect.Interface {
 		vsrc = vsrc.Elem()
 	}

@@ -8,4 +8,5 @@ var (
 	ErrNilPointerRead            = errors.New("attempt to read from a nil pointer")
 	ErrEmptyValue                = errors.New("validator: value must not be empty")
 	ErrDestinationNotAddressable = errors.New("assign: destination cannot be addressed")
+	ErrStructPtrRequired         = errors.New("parameter must be a pointer to a struct")
 )

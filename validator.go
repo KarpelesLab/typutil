@@ -28,6 +28,38 @@ func SetValidator[T any](validator string, fnc func(T) error) {
 	validators[validator] = &validatorObject{fnc: vfnc, arg: argt}
 }
 
+// Validate accept any struct as argument and returns if the struct is valid. The parameter should be a pointer
+// to the struct so validators can edit values.
+func Validate(obj any) error {
+	v := reflect.ValueOf(obj)
+	if v.Kind() != reflect.Pointer {
+		return ErrStructPtrRequired
+	}
+	for v.Kind() == reflect.Pointer {
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return ErrStructPtrRequired
+	}
+
+	t := v.Type()
+	n := t.NumField()
+	for i := 0; i < n; i++ {
+		f := t.Field(i)
+		validators, err := getValidators(f.Tag.Get("validator"))
+		if err != nil {
+			return err
+		}
+		for _, sub := range validators {
+			err = sub.runReflectValue(v.Field(i).Addr())
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func getValidators(s string) ([]*validatorObject, error) {
 	if s == "" {
 		return nil, nil

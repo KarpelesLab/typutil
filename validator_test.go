@@ -72,3 +72,23 @@ func TestPtrValidator(t *testing.T) {
 		t.Errorf("unexpected X value: %s", b.X)
 	}
 }
+
+type valC struct {
+	A string `validator:"minlength=3"`
+}
+
+func TestArgValidator(t *testing.T) {
+	var c *valC
+
+	err := typutil.Assign(&c, map[string]any{"A": "b"})
+	if err == nil {
+		t.Errorf("should have had an error")
+	} else if err.Error() != "string must be at least 3 characters" {
+		t.Errorf("unexpected error %s", err)
+	}
+
+	err = typutil.Assign(&c, map[string]any{"A": "boo"})
+	if err != nil {
+		t.Errorf("unexpected error %s", err)
+	}
+}

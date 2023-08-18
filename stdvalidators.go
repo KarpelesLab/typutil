@@ -2,12 +2,15 @@ package typutil
 
 import (
 	"errors"
+	"fmt"
 	"net/netip"
 	"reflect"
 )
 
 func init() {
 	SetValidator("not_empty", validateNotEmpty)
+	SetValidatorArgs("minlength", validateMinLength)
+	SetValidatorArgs("maxlength", validateMaxLength)
 	SetValidator("ip_address", validateIpAddr)
 	SetValidator("hex6color", validateHex6Color)
 	SetValidator("hex64", validateHex64)
@@ -31,6 +34,20 @@ func validateNotEmpty(v any) error {
 		}
 		return ErrEmptyValue
 	}
+}
+
+func validateMinLength(v string, ln int) error {
+	if len(v) < ln {
+		return fmt.Errorf("string must be at least %d characters", ln)
+	}
+	return nil
+}
+
+func validateMaxLength(v string, ln int) error {
+	if len(v) > ln {
+		return fmt.Errorf("string must be at most %d characters", ln)
+	}
+	return nil
 }
 
 func validateIpAddr(ip string) error {

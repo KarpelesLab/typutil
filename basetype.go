@@ -15,6 +15,8 @@ func BaseType(v any) any {
 		json.Unmarshal(o, &v)
 	case pjson.RawMessage:
 		pjson.Unmarshal(o, &v)
+	case reflect.Value:
+		v = o.Interface()
 	}
 
 	val := reflect.ValueOf(v)
@@ -31,9 +33,10 @@ func BaseType(v any) any {
 		return val.Complex()
 	case reflect.Array, reflect.Slice:
 		// []byte ?
-		return val.Slice(0, val.Len())
+		return v
+		//return val.Slice(0, val.Len())
 	case reflect.Interface, reflect.Pointer:
-		return BaseType(val.Elem())
+		return BaseType(val.Elem().Interface())
 	case reflect.String:
 		return val.String()
 	default:

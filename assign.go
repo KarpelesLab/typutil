@@ -87,6 +87,9 @@ func assignReflectValues(vdst, vsrc reflect.Value) error {
 	if vdst.Kind() == reflect.Interface {
 		vdst = vdst.Elem()
 	}
+	if !vdst.CanAddr() && vdst.Kind() == reflect.Ptr {
+		vdst = vdst.Elem()
+	}
 
 	f := getAssignFunc(vdst.Type(), vsrc.Type())
 	if f == nil {

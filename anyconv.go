@@ -2,6 +2,7 @@ package typutil
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -310,5 +311,85 @@ func AsString(v any) (string, bool) {
 		}
 	default:
 		return fmt.Sprintf("%v", v), false
+	}
+}
+
+func AsByteArray(v any) ([]byte, bool) {
+	v = BaseType(v)
+	switch s := v.(type) {
+	case string:
+		return []byte(s), true
+	case []byte:
+		return s, true
+	case *bytes.Buffer:
+		return s.Bytes(), true
+	case interface{ Bytes() []byte }:
+		return s.Bytes(), true
+	case int64:
+		buf := make([]byte, 8)
+		binary.BigEndian.PutUint64(buf, uint64(s))
+		return buf, true
+	case uint64:
+		buf := make([]byte, 8)
+		binary.BigEndian.PutUint64(buf, s)
+		return buf, true
+	case int32:
+		buf := make([]byte, 4)
+		binary.BigEndian.PutUint32(buf, uint32(s))
+		return buf, true
+	case uint32:
+		buf := make([]byte, 4)
+		binary.BigEndian.PutUint32(buf, s)
+		return buf, true
+	case int16:
+		buf := make([]byte, 2)
+		binary.BigEndian.PutUint16(buf, uint16(s))
+		return buf, true
+	case uint16:
+		buf := make([]byte, 2)
+		binary.BigEndian.PutUint16(buf, s)
+		return buf, true
+	case int8:
+		return []byte{byte(s)}, true
+	case uint8:
+		return []byte{byte(s)}, true
+	case int:
+		if math.MaxUint == math.MaxUint32 {
+			// 32 bits int
+			buf := make([]byte, 4)
+			binary.BigEndian.PutUint32(buf, uint32(s))
+			return buf, true
+		} else {
+			// 64 bits int
+			buf := make([]byte, 8)
+			binary.BigEndian.PutUint64(buf, uint64(s))
+			return buf, true
+		}
+	case uint:
+		if math.MaxUint == math.MaxUint32 {
+			// 32 bits int
+			buf := make([]byte, 4)
+			binary.BigEndian.PutUint32(buf, uint32(s))
+			return buf, true
+		} else {
+			// 64 bits int
+			buf := make([]byte, 8)
+			binary.BigEndian.PutUint64(buf, uint64(s))
+			return buf, true
+		}
+	case bool:
+		if s {
+			return []byte{1}, true
+		} else {
+			return []byte{0}, true
+		}
+	case nil:
+		return nil, true
+	case float32, float64, complex64, complex128:
+		buf := &bytes.Buffer{}
+		binary.Write(buf, binary.BigEndian, s)
+		return buf.Bytes(), true
+	default:
+		return []byte(fmt.Sprintf("%v", v)), false
 	}
 }

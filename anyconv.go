@@ -220,6 +220,7 @@ func AsFloat(v any) (float64, bool) {
 	return float64(res), ok
 }
 
+// AsNumber will convert n in one of int64, uint64 or float64
 func AsNumber(v any) (any, bool) {
 	v = BaseType(v)
 	switch n := v.(type) {
@@ -250,9 +251,13 @@ func AsNumber(v any) (any, bool) {
 	case float64:
 		return n, true
 	case nil:
-		return 0, true
+		return int64(0), true
 	case bool:
-		return n, true
+		if n {
+			return int64(1), true
+		} else {
+			return int64(0), true
+		}
 	case string:
 		if res, err := strconv.ParseInt(n, 0, 64); err == nil {
 			return res, true
@@ -263,7 +268,8 @@ func AsNumber(v any) (any, bool) {
 		if res, err := strconv.ParseFloat(n, 64); err == nil {
 			return res, true
 		}
-		return AsBool(n), false
+		v, _ := AsNumber(AsBool(n))
+		return v, false
 	case *bytes.Buffer:
 		if n.Len() > 100 {
 			return nil, false

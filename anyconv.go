@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"net/url"
+	"reflect"
 	"strconv"
 )
 
@@ -275,6 +276,25 @@ func AsNumber(v any) (any, bool) {
 			return nil, false
 		}
 		return AsNumber(n.String())
+	default:
+		// reflect for values that do not match directly
+		rv := reflect.ValueOf(n)
+		switch rv.Kind() {
+		case reflect.Bool:
+			if rv.Bool() {
+				return int64(1), true
+			} else {
+				return int64(0), true
+			}
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			return rv.Int(), true
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+			return rv.Uint(), true
+		case reflect.Float32, reflect.Float64:
+			return rv.Float(), true
+		case reflect.String:
+			return AsNumber(rv.String())
+		}
 	}
 
 	return nil, false

@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"reflect"
 	"strconv"
+
+	"golang.org/x/exp/constraints"
 )
 
 // some helper functions related to numbers
@@ -417,5 +419,126 @@ func AsByteArray(v any) ([]byte, bool) {
 		return buf.Bytes(), true
 	default:
 		return []byte(fmt.Sprintf("%v", v)), false
+	}
+}
+
+// ToType returns v converted to ref's type
+func ToType(ref, v any) (any, bool) {
+	switch ref.(type) {
+	case bool:
+		return AsBool(v), true
+	case int:
+		return toTypeInt[int](v)
+	case int8:
+		return toTypeInt[int8](v)
+	case int16:
+		return toTypeInt[int16](v)
+	case int32:
+		return toTypeInt[int32](v)
+	case int64:
+		return toTypeInt[int64](v)
+	case uint:
+		return toTypeUint[uint](v)
+	case uint8:
+		return toTypeUint[uint8](v)
+	case uint16:
+		return toTypeUint[uint16](v)
+	case uint32:
+		return toTypeUint[uint32](v)
+	case uint64:
+		return toTypeUint[uint64](v)
+	case uintptr:
+		return toTypeUint[uintptr](v)
+	case float32:
+		return toTypeFloat[float32](v)
+	case float64:
+		return toTypeFloat[float64](v)
+	case []byte:
+		return AsByteArray(v)
+	case string:
+		return AsString(v)
+	default:
+		t := reflect.TypeOf(ref)
+		switch t.Kind() {
+		case reflect.Bool:
+			return AsBool(v), true
+		case reflect.Int:
+			return toTypeInt[int](v)
+		case reflect.Int8:
+			return toTypeInt[int8](v)
+		case reflect.Int16:
+			return toTypeInt[int16](v)
+		case reflect.Int32:
+			return toTypeInt[int32](v)
+		case reflect.Int64:
+			return toTypeInt[int64](v)
+		case reflect.Uint:
+			return toTypeUint[uint](v)
+		case reflect.Uint8:
+			return toTypeUint[uint8](v)
+		case reflect.Uint16:
+			return toTypeUint[uint16](v)
+		case reflect.Uint32:
+			return toTypeUint[uint32](v)
+		case reflect.Uint64:
+			return toTypeUint[uint64](v)
+		case reflect.Uintptr:
+			return toTypeUint[uintptr](v)
+		case reflect.Float32:
+			return toTypeFloat[float32](v)
+		case reflect.Float64:
+			return toTypeFloat[float64](v)
+		case reflect.String:
+			return AsString(v)
+		}
+
+		v := reflect.ValueOf(v)
+		if v.CanConvert(t) {
+			return v.Convert(t).Interface(), true
+		}
+
+		return nil, false
+	}
+}
+
+func toTypeInt[T constraints.Signed](v any) (T, bool) {
+	n, ok := AsNumber(v)
+	switch xn := n.(type) {
+	case int64:
+		return T(xn), ok
+	case uint64:
+		return T(xn), ok
+	case float64:
+		return T(xn), ok
+	default:
+		return 0, false
+	}
+}
+
+func toTypeUint[T constraints.Unsigned](v any) (T, bool) {
+	n, ok := AsNumber(v)
+	switch xn := n.(type) {
+	case int64:
+		return T(xn), ok
+	case uint64:
+		return T(xn), ok
+	case float64:
+		return T(xn), ok
+	default:
+		return 0, false
+	}
+}
+
+func toTypeFloat[T ~float32 | ~float64](v any) (T, bool) {
+	n, ok := AsNumber(v)
+	switch xn := n.(type) {
+	case int64:
+		return T(xn), ok
+	case uint64:
+		return T(xn), ok
+	case float64:
+		return T(xn), ok
+	default:
+		return 0, false
 	}
 }

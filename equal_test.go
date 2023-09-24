@@ -19,6 +19,7 @@ func TestEqual(t *testing.T) {
 		&equalTestVector{5, 5.0, true},
 		&equalTestVector{5, 5.5, false},
 		&equalTestVector{5.5, 5, false},
+		&equalTestVector{"42e-5", 0.00042, true},
 	}
 
 	for _, sub := range v {

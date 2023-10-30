@@ -151,6 +151,8 @@ func newAssignFunc(dstt, srct reflect.Type) assignFunc {
 			return makeAssignStructToStruct(dstt, srct)
 		case reflect.Map:
 			return makeAssignMapToStruct(dstt, srct)
+		default:
+			return makeAssignAnyToRuntime(dstt, srct)
 		}
 	}
 
@@ -296,6 +298,12 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
 	default:
 		// unsupported map type
 		return nil
+	}
+}
+
+func makeAssignAnyToRuntime(dstt, srct reflect.Type) assignFunc {
+	return func(dst, src reflect.Value) error {
+		return assignReflectValues(dst, src)
 	}
 }
 

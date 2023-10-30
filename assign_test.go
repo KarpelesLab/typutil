@@ -60,7 +60,9 @@ func TestAssignStruct(t *testing.T) {
 
 	// test assign from map
 	b = nil
-	err = typutil.Assign(&b, map[string]any{"A": "from a map", "X": 99, "C": 123.456})
+	var arg any
+	arg = map[string]any{"A": "from a map", "X": 99, "C": 123.456}
+	err = typutil.Assign(&b, &arg)
 	if err != nil {
 		t.Errorf("map to struct assign failed: %s", err)
 		return

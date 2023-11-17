@@ -152,7 +152,7 @@ func Validate(obj any) error {
 
 func (v *validatorObject) runReflectValue(val reflect.Value, args []reflect.Value) error {
 	valT := reflect.New(v.arg)
-	err := assignReflectValues(valT, val)
+	err := AssignReflect(valT, val)
 	if err != nil {
 		return err
 	}
@@ -181,7 +181,7 @@ func (v *validatorObject) convertArgs(args string) []reflect.Value {
 	for i := 0; i < extraCnt; i++ {
 		argt := t.In(i + 1)
 		v := reflect.New(argt).Elem()
-		assignReflectValues(v, reflect.ValueOf(argsArray[i]))
+		AssignReflect(v, reflect.ValueOf(argsArray[i]))
 		res = append(res, v)
 	}
 	return res

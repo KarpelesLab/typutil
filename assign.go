@@ -80,7 +80,7 @@ func Assign(dst, src any) error {
 	return f(vdst, vsrc)
 }
 
-func assignReflectValues(vdst, vsrc reflect.Value) error {
+func AssignReflect(vdst, vsrc reflect.Value) error {
 	if vsrc.Kind() == reflect.Interface {
 		vsrc = vsrc.Elem()
 	}
@@ -303,7 +303,7 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
 
 func makeAssignAnyToRuntime(dstt, srct reflect.Type) assignFunc {
 	return func(dst, src reflect.Value) error {
-		return assignReflectValues(dst, src)
+		return AssignReflect(dst, src)
 	}
 }
 

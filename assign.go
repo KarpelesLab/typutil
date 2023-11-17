@@ -151,7 +151,7 @@ func newAssignFunc(dstt, srct reflect.Type) assignFunc {
 			return makeAssignStructToStruct(dstt, srct)
 		case reflect.Map:
 			return makeAssignMapToStruct(dstt, srct)
-		default:
+		case reflect.Interface:
 			return makeAssignAnyToRuntime(dstt, srct)
 		}
 	}

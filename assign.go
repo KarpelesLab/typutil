@@ -27,14 +27,14 @@ var (
 	valueScannerType    = reflect.TypeOf((*valueScanner)(nil)).Elem()
 )
 
-func getAssignFunc(dstt reflect.Type, srct reflect.Type) assignFunc {
+func getAssignFunc(dstt reflect.Type, srct reflect.Type) (assignFunc, error) {
 	if dstt == srct {
-		return simpleSet
+		return simpleSet, nil
 	}
 
 	act := assignConvType{dstt, srct}
 	if fi, ok := assignFuncCache.Load(act); ok {
-		return fi.(assignFunc)
+		return fi.(assignFunc), nil
 	}
 
 	// deal with recursive type the same way encoding/json does
@@ -43,20 +43,23 @@ func getAssignFunc(dstt reflect.Type, srct reflect.Type) assignFunc {
 		f  assignFunc
 	)
 	wg.Add(1)
+	defer wg.Done()
 
 	fi, loaded := assignFuncCache.LoadOrStore(act, assignFunc(func(dst, src reflect.Value) error {
 		wg.Wait()
 		return f(dst, src)
 	}))
 	if loaded {
-		return fi.(assignFunc)
+		return fi.(assignFunc), nil
 	}
 
 	// compute real func
-	f = newAssignFunc(dstt, srct)
-	wg.Done()
+	f, err := newAssignFunc(dstt, srct)
+	if err != nil {
+		return nil, err
+	}
 	assignFuncCache.Store(act, f)
-	return f
+	return f, nil
 }
 
 func Assign(dst, src any) error {
@@ -73,9 +76,9 @@ func Assign(dst, src any) error {
 	}
 
 	// do the thing
-	f := getAssignFunc(vdst.Type(), vsrc.Type())
-	if f == nil {
-		return fmt.Errorf("%w: %T to %T", ErrAssignImpossible, src, dst)
+	f, err := getAssignFunc(vdst.Type(), vsrc.Type())
+	if err != nil {
+		return fmt.Errorf("%w (assigning %T to %T)", err, src, dst)
 	}
 	return f(vdst, vsrc)
 }
@@ -91,9 +94,9 @@ func AssignReflect(vdst, vsrc reflect.Value) error {
 		vdst = vdst.Elem()
 	}
 
-	f := getAssignFunc(vdst.Type(), vsrc.Type())
-	if f == nil {
-		return fmt.Errorf("%w: %s to %s", ErrAssignImpossible, vsrc.Type(), vdst.Type())
+	f, err := getAssignFunc(vdst.Type(), vsrc.Type())
+	if err != nil {
+		return fmt.Errorf("%w (assigning %s to %s)", err, vsrc.Type(), vdst.Type())
 	}
 	return f(vdst, vsrc)
 }
@@ -107,13 +110,13 @@ func ptrCount(t reflect.Type) int {
 	return n
 }
 
-func newAssignFunc(dstt, srct reflect.Type) assignFunc {
+func newAssignFunc(dstt, srct reflect.Type) (assignFunc, error) {
 	//log.Printf("assign func lookup %s → %s", srct, dstt)
 	if srct.AssignableTo(dstt) {
-		return simpleSet
+		return simpleSet, nil
 	}
 	if srct.ConvertibleTo(dstt) {
-		return convertSet
+		return convertSet, nil
 	}
 
 	srcptrct := ptrCount(srct)
@@ -134,13 +137,13 @@ func newAssignFunc(dstt, srct reflect.Type) assignFunc {
 
 	switch dstt.Kind() {
 	case reflect.String:
-		return makeAssignToString(dstt, srct)
+		return makeAssignToString(dstt, srct), nil
 	case reflect.Bool:
-		return makeAssignToBool(dstt, srct)
+		return makeAssignToBool(dstt, srct), nil
 	case reflect.Float32, reflect.Float64:
-		return makeAssignToFloat(dstt, srct)
+		return makeAssignToFloat(dstt, srct), nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return makeAssignToInt(dstt, srct)
+		return makeAssignToInt(dstt, srct), nil
 	case reflect.Slice:
 		return makeAssignToSlice(dstt, srct)
 	case reflect.Map:
@@ -152,12 +155,12 @@ func newAssignFunc(dstt, srct reflect.Type) assignFunc {
 		case reflect.Map:
 			return makeAssignMapToStruct(dstt, srct)
 		case reflect.Interface:
-			return makeAssignAnyToRuntime(dstt, srct)
+			return makeAssignAnyToRuntime(dstt, srct), nil
 		}
 	}
 
 	//log.Printf("[assign] failed to generate function to convert from %s to %s", srct, dstt)
-	return nil
+	return nil, fmt.Errorf("%w: invalid conversion from %s to %s", ErrAssignImpossible, srct, dstt)
 }
 
 func simpleSet(dst, src reflect.Value) error {
@@ -181,7 +184,7 @@ type fieldInfo struct {
 	idx int
 }
 
-func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
+func makeAssignStructToStruct(dstt, srct reflect.Type) (assignFunc, error) {
 	var fields []*assignStructInOut
 
 	fieldsIn := make(map[string]*fieldInfo)
@@ -218,9 +221,9 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
 			continue
 		}
 
-		fnc := newAssignFunc(dstf.Type, srcf.StructField.Type)
+		fnc, err := newAssignFunc(dstf.Type, srcf.StructField.Type)
 		if fnc == nil {
-			return nil
+			return nil, err
 		}
 
 		fields = append(fields, &assignStructInOut{
@@ -234,7 +237,7 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
 
 	validator := getValidatorForType(dstt)
 
-	return func(dst, src reflect.Value) error {
+	f := func(dst, src reflect.Value) error {
 		for _, f := range fields {
 			dstf := dst.Field(f.out)
 			if err := f.set(dstf, src.Field(f.in)); err != nil {
@@ -246,9 +249,10 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) assignFunc {
 		}
 		return nil
 	}
+	return f, nil
 }
 
-func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
+func makeAssignMapToStruct(dstt, srct reflect.Type) (assignFunc, error) {
 	// srct is a map
 	switch srct.Key().Kind() {
 	case reflect.String:
@@ -258,9 +262,9 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
 
 		for i := 0; i < dstt.NumField(); i++ {
 			f := dstt.Field(i)
-			fnc := newAssignFunc(f.Type, mapvtype)
-			if fnc == nil {
-				return nil
+			fnc, err := newAssignFunc(f.Type, mapvtype)
+			if err != nil {
+				return nil, err
 			}
 			name := f.Name
 			if jsonTag := f.Tag.Get("json"); jsonTag != "" {
@@ -278,7 +282,7 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
 
 		validator := getValidatorForType(dstt)
 
-		return func(dst, src reflect.Value) error {
+		f := func(dst, src reflect.Value) error {
 			iter := src.MapRange()
 			for iter.Next() {
 				f, ok := fields[iter.Key().String()]
@@ -295,9 +299,10 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) assignFunc {
 			}
 			return nil
 		}
+		return f, nil
 	default:
 		// unsupported map type
-		return nil
+		return nil, fmt.Errorf("%w: invalid src type %s", ErrAssignImpossible, srct)
 	}
 }
 
@@ -307,34 +312,36 @@ func makeAssignAnyToRuntime(dstt, srct reflect.Type) assignFunc {
 	}
 }
 
-func newNewAndAssign(dstt, srct reflect.Type) assignFunc {
+func newNewAndAssign(dstt, srct reflect.Type) (assignFunc, error) {
 	subt := dstt.Elem()
-	subf := newAssignFunc(subt, srct)
-	if subf == nil {
-		return nil
+	subf, err := newAssignFunc(subt, srct)
+	if err != nil {
+		return nil, err
 	}
 
-	return func(dst, src reflect.Value) error {
+	f := func(dst, src reflect.Value) error {
 		if dst.IsNil() {
 			dst.Set(reflect.New(subt))
 		}
 		return subf(dst.Elem(), src)
 	}
+	return f, nil
 }
 
-func ptrReadAndAssign(dstt, srct reflect.Type) assignFunc {
+func ptrReadAndAssign(dstt, srct reflect.Type) (assignFunc, error) {
 	subt := srct.Elem()
-	subf := newAssignFunc(dstt, subt)
-	if subf == nil {
-		return nil
+	subf, err := newAssignFunc(dstt, subt)
+	if err != nil {
+		return nil, err
 	}
 
-	return func(dst, src reflect.Value) error {
+	f := func(dst, src reflect.Value) error {
 		if src.IsNil() {
 			return ErrNilPointerRead
 		}
 		return subf(dst, src.Elem())
 	}
+	return f, nil
 }
 
 func makeAssignToString(dstt, srct reflect.Type) assignFunc {
@@ -366,7 +373,7 @@ func makeAssignToString(dstt, srct reflect.Type) assignFunc {
 	}
 }
 
-func makeAssignToSlice(dstt, srct reflect.Type) assignFunc {
+func makeAssignToSlice(dstt, srct reflect.Type) (assignFunc, error) {
 	if dstt.Elem().Kind() == reflect.Uint8 {
 		// []byte = possibly a string
 		return makeAssignToByteSlice(dstt, srct)
@@ -375,12 +382,12 @@ func makeAssignToSlice(dstt, srct reflect.Type) assignFunc {
 	switch srct.Kind() {
 	case reflect.Slice:
 		// slice→slice
-		f := getAssignFunc(dstt.Elem(), srct.Elem())
-		if f == nil {
-			return nil
+		convfunc, err := getAssignFunc(dstt.Elem(), srct.Elem())
+		if err != nil {
+			return nil, err
 		}
 
-		return func(dst, src reflect.Value) error {
+		f := func(dst, src reflect.Value) error {
 			ln := src.Len()
 			if dst.Cap() < ln {
 				dst.Grow(ln - dst.Cap())
@@ -388,22 +395,23 @@ func makeAssignToSlice(dstt, srct reflect.Type) assignFunc {
 			dst.SetLen(ln)
 			//dst.Set(reflect.MakeSlice(dstt.Elem(), ln, ln))
 			for i := 0; i < ln; i++ {
-				if err := f(dst.Index(i), src.Index(i)); err != nil {
+				if err := convfunc(dst.Index(i), src.Index(i)); err != nil {
 					return err
 				}
 			}
 			return nil
 		}
+		return f, nil
 	default:
-		return nil // ???
+		return nil, fmt.Errorf("%w: invalid source %s", ErrAssignImpossible, srct.Kind())
 	}
 }
 
-func makeAssignToByteSlice(dstt, srct reflect.Type) assignFunc {
+func makeAssignToByteSlice(dstt, srct reflect.Type) (assignFunc, error) {
 	switch srct.Kind() {
 	case reflect.String:
 		// assume base64 encoded
-		return func(dst, src reflect.Value) error {
+		f := func(dst, src reflect.Value) error {
 			dec, err := base64.StdEncoding.DecodeString(src.String())
 			if err != nil {
 				return err
@@ -411,9 +419,9 @@ func makeAssignToByteSlice(dstt, srct reflect.Type) assignFunc {
 			dst.SetBytes(dec)
 			return nil
 		}
+		return f, nil
 	default:
-		// ???
-		return nil
+		return nil, fmt.Errorf("%w: unsupported type %s to byte slice", srct)
 	}
 }
 
@@ -473,17 +481,19 @@ func makeAssignToBool(dstt, srct reflect.Type) assignFunc {
 	}
 }
 
-func makeAssignToMap(dstt, srct reflect.Type) assignFunc {
+func makeAssignToMap(dstt, srct reflect.Type) (assignFunc, error) {
 	switch srct.Kind() {
 	case reflect.Map:
-		kf := getAssignFunc(dstt.Key(), srct.Key())
-		vf := getAssignFunc(dstt.Elem(), srct.Elem())
-
-		if kf == nil || vf == nil {
-			return nil
+		kf, err := getAssignFunc(dstt.Key(), srct.Key())
+		if err != nil {
+			return nil, err
+		}
+		vf, err := getAssignFunc(dstt.Elem(), srct.Elem())
+		if err != nil {
+			return nil, err
 		}
 
-		return func(dst, src reflect.Value) error {
+		f := func(dst, src reflect.Value) error {
 			dst.Set(reflect.MakeMap(dstt))
 			iter := src.MapRange()
 			for iter.Next() {
@@ -499,10 +509,11 @@ func makeAssignToMap(dstt, srct reflect.Type) assignFunc {
 			}
 			return nil
 		}
+		return f, nil
 	case reflect.Struct:
 		if dstt.Key().Kind() != reflect.String {
 			// we require map converted from struct to have a string key
-			return nil
+			return nil, fmt.Errorf("%w: map key is not of string type", ErrAssignImpossible)
 		}
 		subt := dstt.Elem()
 
@@ -520,14 +531,14 @@ func makeAssignToMap(dstt, srct reflect.Type) assignFunc {
 					name = jsonA[0]
 				}
 			}
-			fnc := getAssignFunc(subt, f.Type)
-			if fnc == nil {
-				return nil
+			fnc, err := getAssignFunc(subt, f.Type)
+			if err != nil {
+				return nil, err
 			}
 			fieldsIn[name] = &assignStructInOut{in: i, set: fnc}
 		}
 
-		return func(dst, src reflect.Value) error {
+		f := func(dst, src reflect.Value) error {
 			dst.Set(reflect.MakeMap(dstt))
 			for s, f := range fieldsIn {
 				dv := reflect.New(dstt.Elem()).Elem()
@@ -538,15 +549,16 @@ func makeAssignToMap(dstt, srct reflect.Type) assignFunc {
 			}
 			return nil
 		}
+		return f, nil
 	default:
-		return nil
+		return nil, fmt.Errorf("%w: unsupported type %s", ErrAssignImpossible, srct)
 	}
 }
 
-func makeAssignScanIntf(dstt, srct reflect.Type) assignFunc {
+func makeAssignScanIntf(dstt, srct reflect.Type) (assignFunc, error) {
 	validator := getValidatorForType(dstt)
 
-	return func(dst, src reflect.Value) error {
+	f := func(dst, src reflect.Value) error {
 		if !dst.CanAddr() {
 			return ErrDestinationNotAddressable
 		}
@@ -557,4 +569,5 @@ func makeAssignScanIntf(dstt, srct reflect.Type) assignFunc {
 
 		return validator.validate(dst)
 	}
+	return f, nil
 }

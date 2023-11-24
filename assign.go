@@ -49,7 +49,6 @@ func getAssignFunc(dstt reflect.Type, srct reflect.Type) (assignFunc, error) {
 	fi, loaded := assignFuncCache.LoadOrStore(act, assignFunc(func(dst, src reflect.Value) error {
 		wg.Wait()
 		if err != nil {
-			assignFuncCache.Delete(act)
 			return err
 		}
 		return f(dst, src)

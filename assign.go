@@ -61,6 +61,7 @@ func getAssignFunc(dstt reflect.Type, srct reflect.Type) (assignFunc, error) {
 	// compute real func
 	f, err = newAssignFunc(dstt, srct)
 	if err != nil {
+		assignFuncCache.Delete(act)
 		return nil, err
 	}
 	assignFuncCache.Store(act, f)

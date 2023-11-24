@@ -39,14 +39,19 @@ func getAssignFunc(dstt reflect.Type, srct reflect.Type) (assignFunc, error) {
 
 	// deal with recursive type the same way encoding/json does
 	var (
-		wg sync.WaitGroup
-		f  assignFunc
+		wg  sync.WaitGroup
+		f   assignFunc
+		err error
 	)
 	wg.Add(1)
 	defer wg.Done()
 
 	fi, loaded := assignFuncCache.LoadOrStore(act, assignFunc(func(dst, src reflect.Value) error {
 		wg.Wait()
+		if err != nil {
+			assignFuncCache.Delete(act)
+			return err
+		}
 		return f(dst, src)
 	}))
 	if loaded {
@@ -54,7 +59,7 @@ func getAssignFunc(dstt reflect.Type, srct reflect.Type) (assignFunc, error) {
 	}
 
 	// compute real func
-	f, err := newAssignFunc(dstt, srct)
+	f, err = newAssignFunc(dstt, srct)
 	if err != nil {
 		return nil, err
 	}

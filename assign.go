@@ -421,7 +421,7 @@ func makeAssignToByteSlice(dstt, srct reflect.Type) (assignFunc, error) {
 		}
 		return f, nil
 	default:
-		return nil, fmt.Errorf("%w: unsupported type %s to byte slice", srct)
+		return nil, fmt.Errorf("%w: unsupported type %s to byte slice", ErrAssignImpossible, srct)
 	}
 }
 

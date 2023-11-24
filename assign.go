@@ -407,6 +407,9 @@ func makeAssignToSlice(dstt, srct reflect.Type) (assignFunc, error) {
 			return nil
 		}
 		return f, nil
+	case reflect.Interface:
+		// perform this runtime
+		return makeAssignAnyToRuntime(dstt, srct), nil
 	default:
 		return nil, fmt.Errorf("%w: invalid source %s", ErrAssignImpossible, srct.Kind())
 	}

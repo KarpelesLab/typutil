@@ -77,7 +77,8 @@ func getValidators(s string) ([]*validatorObject, [][]reflect.Value, error) {
 }
 
 type fieldValidator struct {
-	fld  int // field index
+	fld  int    // field index
+	name string // field name
 	vals []*validatorObject
 	args [][]reflect.Value // extra validator param, if any
 }
@@ -113,7 +114,7 @@ func getValidatorForType(t reflect.Type) structValidator {
 		if len(vals) == 0 {
 			continue
 		}
-		val = append(val, &fieldValidator{fld: i, vals: vals, args: args})
+		val = append(val, &fieldValidator{fld: i, name: f.Name, vals: vals, args: args})
 	}
 	validatorCache[t] = val
 	return val
@@ -126,7 +127,7 @@ func (sv structValidator) validate(val reflect.Value) error {
 		for n, sub := range vd.vals {
 			err = sub.runReflectValue(f, vd.args[n])
 			if err != nil {
-				return err
+				return fmt.Errorf("on field %s: %w", vd.name, err)
 			}
 		}
 	}

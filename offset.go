@@ -1,10 +1,19 @@
 package typutil
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
-// GetOffset returns v[offset] dealing with various case of figure
-func GetOffset(v any, offset string) (any, error) {
+type offsetGetter interface {
+	OffsetGet(context.Context, string) (any, error)
+}
+
+// OffsetGet returns v[offset] dealing with various case of figure. ctx will be passed to some methods handling it
+func OffsetGet(ctx context.Context, v any, offset string) (any, error) {
 	switch a := v.(type) {
+	case offsetGetter:
+		return a.OffsetGet(ctx, offset)
 	case map[string]any:
 		return a[offset], nil
 	case []any:

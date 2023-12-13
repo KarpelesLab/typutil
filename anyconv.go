@@ -65,11 +65,7 @@ func AsBool(v any) bool {
 	case url.Values:
 		return len(r) > 0
 	default:
-		res, err := As[bool](v)
-		if err != nil {
-			return false
-		}
-		return res
+		return false
 	}
 }
 

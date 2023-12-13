@@ -38,6 +38,18 @@ type objB struct {
 	C int32
 }
 
+func TestAssignAs(t *testing.T) {
+	a, err := typutil.As[int]("42")
+
+	if err != nil {
+		t.Errorf("got error = %s", err)
+	}
+
+	if a != 42 {
+		t.Errorf("expected 42, got %v", a)
+	}
+}
+
 func TestAssignStruct(t *testing.T) {
 	a := &objA{A: "hello world", B: 42, C: 123456.789321}
 	var b *objB

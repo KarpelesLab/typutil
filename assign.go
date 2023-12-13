@@ -106,6 +106,16 @@ func AssignReflect(vdst, vsrc reflect.Value) error {
 	return f(vdst, vsrc)
 }
 
+func As[T any](v any) (T, error) {
+	// convert any type to T
+	typ := reflect.TypeOf((*T)(nil)).Elem()
+	obj := reflect.New(typ) // it's a pointer
+
+	err := AssignReflect(obj, reflect.ValueOf(v))
+
+	return obj.Elem().Interface().(T), err
+}
+
 func ptrCount(t reflect.Type) int {
 	n := 0
 	for t.Kind() == reflect.Pointer {

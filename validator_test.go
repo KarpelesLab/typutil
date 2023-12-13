@@ -1,6 +1,7 @@
 package typutil_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -15,7 +16,7 @@ func TestValidator(t *testing.T) {
 	var a *valA
 
 	err := typutil.Assign(&a, map[string]any{"A": ""})
-	if err == nil || err != typutil.ErrEmptyValue {
+	if err == nil || !errors.Is(err, typutil.ErrEmptyValue) {
 		t.Errorf("struct to struct assign failed: %s", err)
 	}
 
@@ -36,7 +37,7 @@ func TestValidator(t *testing.T) {
 
 	a.A = ""
 	err = typutil.Validate(a)
-	if err == nil || err != typutil.ErrEmptyValue {
+	if err == nil || !errors.Is(err, typutil.ErrEmptyValue) {
 		t.Errorf("validate error failed: %v", err)
 	}
 }
@@ -83,7 +84,7 @@ func TestArgValidator(t *testing.T) {
 	err := typutil.Assign(&c, map[string]any{"A": "b"})
 	if err == nil {
 		t.Errorf("should have had an error")
-	} else if err.Error() != "string must be at least 3 characters" {
+	} else if err.Error() != "on field A: string must be at least 3 characters" {
 		t.Errorf("unexpected error %s", err)
 	}
 

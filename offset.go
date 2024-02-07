@@ -24,7 +24,7 @@ func OffsetGet(ctx context.Context, v any, offset string) (any, error) {
 		// convert offset to int, ensure it is in range
 		n, ok := AsUint(offset)
 		if !ok {
-			return nil, ErrBadOffset
+			return nil, fmt.Errorf("%w: %T", ErrBadOffset, offset)
 		}
 		if n < 0 || n >= uint64(len(a)) {
 			// silent error

@@ -12,8 +12,11 @@ type dupTestSruct struct {
 	B string
 	C *int
 	d *int
+	e *int
 	E map[string]string
 	F []string
+	X any
+	Y any
 }
 
 func TestDup(t *testing.T) {
@@ -25,7 +28,9 @@ func TestDup(t *testing.T) {
 		B: "world",
 		C: &v,
 		d: &w,
+		e: &v,
 		E: map[string]string{"foo": "bar"},
+		X: w,
 	}
 
 	b := typutil.DeepClone(a)
@@ -46,6 +51,9 @@ func TestDup(t *testing.T) {
 
 	if a.C == b.C {
 		t.Errorf("a.C should not equal b.C")
+	}
+	if b.C != b.e {
+		t.Errorf("b.C should equal b.e (same pointer)")
 	}
 
 	*b.C = 43

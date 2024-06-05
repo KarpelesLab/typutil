@@ -12,6 +12,11 @@ func DeepClone[T any](v T) T {
 
 // DeepCloneReflect performs a deep duplication of the provided reflect.Value
 func DeepCloneReflect(src reflect.Value) reflect.Value {
+	ptrs := make(map[uintptr]reflect.Value)
+	return deepCloneReflect(src, ptrs)
+}
+
+func deepCloneReflect(src reflect.Value, ptrs map[uintptr]reflect.Value) reflect.Value {
 	if !src.IsValid() {
 		// invalid value → return as is
 		return src
@@ -31,36 +36,60 @@ func DeepCloneReflect(src reflect.Value) reflect.Value {
 		if src.IsNil() {
 			return reflect.New(src.Type()).Elem()
 		}
+		ptr := src.Pointer()
+		if r, ok := ptrs[ptr]; ok {
+			return r
+		}
 		// duplicate the value
 		size := src.Len()
 		dst := reflect.MakeSlice(src.Type(), size, size)
 		for i := 0; i < size; i++ {
-			dst.Index(i).Set(DeepCloneReflect(src.Index(i)))
+			dst.Index(i).Set(deepCloneReflect(src.Index(i), ptrs))
 		}
+		ptrs[ptr] = dst
 		return dst
 	case reflect.Array:
 		size := src.Len()
 		dst := reflect.New(src.Type()).Elem()
 		for i := 0; i < size; i++ {
-			dst.Index(i).Set(DeepCloneReflect(src.Index(i)))
+			dst.Index(i).Set(deepCloneReflect(src.Index(i), ptrs))
 		}
 		return dst
 	case reflect.Map:
 		if src.IsNil() {
 			return reflect.New(src.Type()).Elem()
 		}
+		ptr := src.Pointer()
+		if r, ok := ptrs[ptr]; ok {
+			return r
+		}
 		dst := reflect.MakeMap(src.Type())
 		iter := src.MapRange()
 		for iter.Next() {
-			dst.SetMapIndex(DeepCloneReflect(iter.Key()), DeepCloneReflect(iter.Value()))
+			dst.SetMapIndex(deepCloneReflect(iter.Key(), ptrs), deepCloneReflect(iter.Value(), ptrs))
 		}
+		ptrs[ptr] = dst
 		return dst
-	case reflect.Ptr, reflect.Interface:
+	case reflect.Ptr:
+		newPtr := reflect.New(src.Type()).Elem()
+		if !src.IsNil() {
+			ptr := src.Pointer()
+			if r, ok := ptrs[ptr]; ok {
+				return r
+			}
+			// generate a new target for value
+			newV := reflect.New(src.Type().Elem())
+			newV.Elem().Set(deepCloneReflect(src.Elem(), ptrs))
+			newPtr.Set(newV)
+			ptrs[ptr] = newPtr
+		}
+		return newPtr
+	case reflect.Interface:
 		newPtr := reflect.New(src.Type()).Elem()
 		if !src.IsNil() {
 			// generate a new target for value
-			newV := reflect.New(src.Type().Elem())
-			newV.Elem().Set(DeepCloneReflect(src.Elem()))
+			newV := reflect.New(src.Elem().Type())
+			newV.Elem().Set(deepCloneReflect(src.Elem(), ptrs))
 			newPtr.Set(newV)
 		}
 		return newPtr
@@ -72,11 +101,11 @@ func DeepCloneReflect(src reflect.Value) reflect.Value {
 				// accessing unexported fields will cause panic
 				//log.Printf("type = %s", dst.Field(i).Type())
 				field := dst.Field(i)
-				val := DeepCloneReflect(reflect.NewAt(field.Type(), unsafe.Pointer(src.Field(i).UnsafeAddr())).Elem())
+				val := deepCloneReflect(reflect.NewAt(field.Type(), unsafe.Pointer(src.Field(i).UnsafeAddr())).Elem(), ptrs)
 				reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(val)
 				continue
 			}
-			dst.Field(i).Set(DeepCloneReflect(src.Field(i)))
+			dst.Field(i).Set(deepCloneReflect(src.Field(i), ptrs))
 		}
 		return dst
 	case reflect.UnsafePointer:

@@ -28,6 +28,9 @@ func DeepCloneReflect(src reflect.Value) reflect.Value {
 		// strings are not writable, no need to duplicate
 		return src
 	case reflect.Slice:
+		if src.IsNil() {
+			return reflect.New(src.Type()).Elem()
+		}
 		// duplicate the value
 		size := src.Len()
 		dst := reflect.MakeSlice(src.Type(), size, size)

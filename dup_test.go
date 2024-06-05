@@ -13,6 +13,7 @@ type dupTestSruct struct {
 	C *int
 	d *int
 	E map[string]string
+	F []string
 }
 
 func TestDup(t *testing.T) {

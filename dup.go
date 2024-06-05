@@ -2,6 +2,7 @@ package typutil
 
 import (
 	"reflect"
+	"unsafe"
 )
 
 // DeepClone performs a deep duplication of the provided argument, and returns the newly created object
@@ -67,9 +68,9 @@ func DeepCloneReflect(src reflect.Value) reflect.Value {
 			if !src.Type().Field(i).IsExported() {
 				// accessing unexported fields will cause panic
 				//log.Printf("type = %s", dst.Field(i).Type())
-				//field := dst.Field(i)
-				//val := DeepCloneReflect(reflect.NewAt(field.Type(), unsafe.Pointer(src.Field(i).UnsafeAddr())).Elem())
-				//reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(val)
+				field := dst.Field(i)
+				val := DeepCloneReflect(reflect.NewAt(field.Type(), unsafe.Pointer(src.Field(i).UnsafeAddr())).Elem())
+				reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(val)
 				continue
 			}
 			dst.Field(i).Set(DeepCloneReflect(src.Field(i)))

@@ -52,4 +52,12 @@ func TestDup(t *testing.T) {
 	if v != 42 {
 		t.Errorf("b.C should not affect v")
 	}
+
+	if b.d == nil {
+		t.Errorf("b.d should not be nil")
+	} else if a.d == b.d {
+		t.Errorf("a.d should not equal b.d")
+	} else if *b.d != 1337 {
+		t.Errorf("b.d should equal 1337")
+	}
 }

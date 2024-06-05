@@ -14,7 +14,7 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-// some helper functions related to numbers
+// AsBool loosely converts the value to a boolean
 func AsBool(v any) bool {
 	v = BaseType(v)
 	switch r := v.(type) {
@@ -69,6 +69,7 @@ func AsBool(v any) bool {
 	}
 }
 
+// AsInt loosely converts the given value to a int64
 func AsInt(v any) (int64, bool) {
 	v = BaseType(v)
 	switch n := v.(type) {
@@ -128,6 +129,7 @@ func AsInt(v any) (int64, bool) {
 	return 0, false
 }
 
+// AsUint loosely converts the given value to a uint64
 func AsUint(v any) (uint64, bool) {
 	v = BaseType(v)
 	switch n := v.(type) {
@@ -183,6 +185,7 @@ func AsUint(v any) (uint64, bool) {
 	return 0, false
 }
 
+// AsFloat loosely converts the given value to a float64
 func AsFloat(v any) (float64, bool) {
 	v = BaseType(v)
 	switch n := v.(type) {
@@ -223,7 +226,7 @@ func AsFloat(v any) (float64, bool) {
 	return float64(res), ok
 }
 
-// AsNumber will convert n in one of int64, uint64 or float64
+// AsNumber will loosely convert n in one of int64, uint64 or float64 depending on what feels best
 func AsNumber(v any) (any, bool) {
 	v = BaseType(v)
 	switch n := v.(type) {
@@ -302,6 +305,7 @@ func AsNumber(v any) (any, bool) {
 	return nil, false
 }
 
+// AsString will loosely converts the given value to a string
 func AsString(v any) (string, bool) {
 	v = BaseType(v)
 	switch s := v.(type) {
@@ -342,6 +346,7 @@ func AsString(v any) (string, bool) {
 	}
 }
 
+// AsByteArray will loosely convert the given value to a byte array
 func AsByteArray(v any) ([]byte, bool) {
 	v = BaseType(v)
 	switch s := v.(type) {
@@ -423,6 +428,8 @@ func AsByteArray(v any) ([]byte, bool) {
 }
 
 // ToType returns v converted to ref's type
+//
+// Deprecated: Use As[T](v) instead
 func ToType(ref, v any) (any, bool) {
 	switch ref.(type) {
 	case bool:

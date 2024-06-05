@@ -67,6 +67,7 @@ func getAssignFunc(dstt reflect.Type, srct reflect.Type) (assignFunc, error) {
 	return f, nil
 }
 
+// Assign sets dst to the value of src. In case src is any kind of container, a shallow copy is performed
 func Assign(dst, src any) error {
 	// grab dst value
 	vdst := reflect.ValueOf(dst)

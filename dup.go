@@ -36,13 +36,14 @@ func deepCloneReflect(src reflect.Value, ptrs map[uintptr]reflect.Value) reflect
 		if src.IsNil() {
 			return reflect.New(src.Type()).Elem()
 		}
+		// TODO in case of slice, multiple slices may point to the same data but have different len
 		ptr := src.Pointer()
 		if r, ok := ptrs[ptr]; ok {
 			return r
 		}
 		// duplicate the value
-		size := src.Len()
-		dst := reflect.MakeSlice(src.Type(), size, size)
+		size := src.Cap()
+		dst := reflect.MakeSlice(src.Type(), src.Len(), src.Cap())
 		for i := 0; i < size; i++ {
 			dst.Index(i).Set(deepCloneReflect(src.Index(i), ptrs))
 		}

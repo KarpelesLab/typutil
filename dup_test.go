@@ -17,6 +17,7 @@ type dupTestSruct struct {
 	F []string
 	X any
 	Y any
+	z string
 }
 
 func TestDup(t *testing.T) {
@@ -31,9 +32,10 @@ func TestDup(t *testing.T) {
 		e: &v,
 		E: map[string]string{"foo": "bar"},
 		X: w,
+		z: "are you here?",
 	}
 
-	b := typutil.DeepClone(a)
+	b := typutil.DeepClone(*a)
 
 	if !bytes.Equal(a.A, b.A) {
 		t.Errorf("b should be equal a")

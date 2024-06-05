@@ -96,17 +96,17 @@ func deepCloneReflect(src reflect.Value, ptrs map[uintptr]reflect.Value) reflect
 		return newPtr
 	case reflect.Struct:
 		dst := reflect.New(src.Type()).Elem()
+		dst.Set(src) // first, make a shallow copy so we have a guaranteed addressable version of the struct
 		n := src.NumField()
 		for i := 0; i < n; i += 1 {
 			if !src.Type().Field(i).IsExported() {
-				// accessing unexported fields will cause panic
-				//log.Printf("type = %s", dst.Field(i).Type())
+				// accessing unexported fields normally will cause panic, so we do it the not normal way
 				field := dst.Field(i)
-				val := deepCloneReflect(reflect.NewAt(field.Type(), unsafe.Pointer(src.Field(i).UnsafeAddr())).Elem(), ptrs)
+				val := deepCloneReflect(reflect.NewAt(field.Type(), unsafe.Pointer(dst.Field(i).UnsafeAddr())).Elem(), ptrs)
 				reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(val)
 				continue
 			}
-			dst.Field(i).Set(deepCloneReflect(src.Field(i), ptrs))
+			dst.Field(i).Set(deepCloneReflect(dst.Field(i), ptrs))
 		}
 		return dst
 	case reflect.UnsafePointer:

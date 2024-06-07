@@ -158,8 +158,10 @@ func newAssignFunc(dstt, srct reflect.Type) (assignFunc, error) {
 		return makeAssignToBool(dstt, srct), nil
 	case reflect.Float32, reflect.Float64:
 		return makeAssignToFloat(dstt, srct), nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return makeAssignToInt(dstt, srct), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return makeAssignToUint(dstt, srct), nil
 	case reflect.Slice:
 		return makeAssignToSlice(dstt, srct)
 	case reflect.Map:
@@ -466,7 +468,7 @@ func makeAssignToFloat(dstt, srct reflect.Type) assignFunc {
 
 func makeAssignToInt(dstt, srct reflect.Type) assignFunc {
 	switch srct.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return func(dst, src reflect.Value) error {
 			dst.Set(src)
 			return nil
@@ -479,6 +481,26 @@ func makeAssignToInt(dstt, srct reflect.Type) assignFunc {
 				return fmt.Errorf("failed to convert %s to int", src.Type())
 			}
 			dst.SetInt(v)
+			return nil
+		}
+	}
+}
+
+func makeAssignToUint(dstt, srct reflect.Type) assignFunc {
+	switch srct.Kind() {
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return func(dst, src reflect.Value) error {
+			dst.Set(src)
+			return nil
+		}
+	default:
+		// perform runtime conversion
+		return func(dst, src reflect.Value) error {
+			v, ok := AsUint(src.Interface())
+			if !ok {
+				return fmt.Errorf("failed to convert %s to int", src.Type())
+			}
+			dst.SetUint(v)
 			return nil
 		}
 	}

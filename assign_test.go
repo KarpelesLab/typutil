@@ -30,12 +30,14 @@ type objA struct {
 	A string
 	B int `json:"X"`
 	C float64
+	D float64
 }
 
 type objB struct {
 	A string
 	B float64 `json:"X"`
 	C int32
+	D uint16
 }
 
 func TestAssignAs(t *testing.T) {
@@ -51,7 +53,7 @@ func TestAssignAs(t *testing.T) {
 }
 
 func TestAssignStruct(t *testing.T) {
-	a := &objA{A: "hello world", B: 42, C: 123456.789321}
+	a := &objA{A: "hello world", B: 42, C: 123456.789321, D: 555.22}
 	var b *objB
 
 	err := typutil.Assign(&b, a)
@@ -68,6 +70,9 @@ func TestAssignStruct(t *testing.T) {
 	}
 	if b.C != 123456 {
 		t.Errorf("struct to struct C invalid value: %v", b.C)
+	}
+	if b.D != 555 {
+		t.Errorf("struct to struct D invalid value: %v", b.D)
 	}
 
 	// test assign from map

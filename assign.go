@@ -441,6 +441,9 @@ func makeAssignToByteSlice(dstt, srct reflect.Type) (assignFunc, error) {
 			return nil
 		}
 		return f, nil
+	case reflect.Interface:
+		// perform this runtime
+		return makeAssignAnyToRuntime(dstt, srct), nil
 	default:
 		return nil, fmt.Errorf("%w: unsupported type %s to byte slice", ErrAssignImpossible, srct)
 	}

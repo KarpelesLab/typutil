@@ -206,8 +206,12 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) (assignFunc, error) {
 	var fields []*assignStructInOut
 
 	fieldsIn := make(map[string]*fieldInfo)
-	for i := 0; i < srct.NumField(); i++ {
+	for i, m := 0, srct.NumField(); i < m; i++ {
 		f := srct.Field(i)
+		if !f.IsExported() {
+			// skip non-exported fields
+			continue
+		}
 		name := f.Name
 		if jsonTag := f.Tag.Get("json"); jsonTag != "" {
 			// check if json tag renames field
@@ -221,8 +225,12 @@ func makeAssignStructToStruct(dstt, srct reflect.Type) (assignFunc, error) {
 		}
 		fieldsIn[name] = &fieldInfo{f, i}
 	}
-	for i := 0; i < dstt.NumField(); i++ {
+	for i, m := 0, dstt.NumField(); i < m; i++ {
 		dstf := dstt.Field(i)
+		if !dstf.IsExported() {
+			// skip non-exported fields
+			continue
+		}
 		name := dstf.Name
 		if jsonTag := dstf.Tag.Get("json"); jsonTag != "" {
 			// check if json tag renames field
@@ -280,6 +288,10 @@ func makeAssignMapToStruct(dstt, srct reflect.Type) (assignFunc, error) {
 
 		for i := 0; i < dstt.NumField(); i++ {
 			f := dstt.Field(i)
+			if !f.IsExported() {
+				// skip non-exported fields
+				continue
+			}
 			fnc, err := newAssignFunc(f.Type, mapvtype)
 			if err != nil {
 				return nil, err

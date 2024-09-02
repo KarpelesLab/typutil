@@ -10,8 +10,6 @@ import (
 	"net/url"
 	"reflect"
 	"strconv"
-
-	"golang.org/x/exp/constraints"
 )
 
 // AsBool loosely converts the value to a boolean
@@ -508,7 +506,7 @@ func ToType(ref, v any) (any, bool) {
 	}
 }
 
-func toTypeInt[T constraints.Signed](v any) (T, bool) {
+func toTypeInt[T Signed](v any) (T, bool) {
 	n, ok := AsNumber(v)
 	switch xn := n.(type) {
 	case int64:
@@ -522,7 +520,7 @@ func toTypeInt[T constraints.Signed](v any) (T, bool) {
 	}
 }
 
-func toTypeUint[T constraints.Unsigned](v any) (T, bool) {
+func toTypeUint[T Unsigned](v any) (T, bool) {
 	n, ok := AsNumber(v)
 	switch xn := n.(type) {
 	case int64:

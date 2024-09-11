@@ -22,9 +22,19 @@ type valueScanner interface {
 	Scan(any) error
 }
 
+// AssignableTo is an interface that can be implemented by objects able to assign themselves
+// to values. Do not use Assign() inside AssignTo or you risk generating an infinite loop.
+//
+// This looks a bit like sql's Valuer, except instead of a returning a any interface, the
+// parameter is a pointer to the target type. Typically, Unmarshal will be used in here.
+type AssignableTo interface {
+	AssignTo(any) error
+}
+
 var (
 	textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 	valueScannerType    = reflect.TypeOf((*valueScanner)(nil)).Elem()
+	valueAssignerType   = reflect.TypeOf((*AssignableTo)(nil)).Elem()
 )
 
 func getAssignFunc(dstt reflect.Type, srct reflect.Type) (assignFunc, error) {
@@ -149,6 +159,9 @@ func newAssignFunc(dstt, srct reflect.Type) (assignFunc, error) {
 	// check for interfaces/etc
 	if reflect.PointerTo(dstt).Implements(valueScannerType) {
 		return makeAssignScanIntf(dstt, srct)
+	}
+	if reflect.PointerTo(srct).Implements(valueAssignerType) {
+		return makeAssignToIntf(dstt, srct)
 	}
 
 	switch dstt.Kind() {
@@ -619,6 +632,23 @@ func makeAssignScanIntf(dstt, srct reflect.Type) (assignFunc, error) {
 			return ErrDestinationNotAddressable
 		}
 		err := dst.Addr().Interface().(valueScanner).Scan(src.Interface())
+		if err != nil {
+			return err
+		}
+
+		return validator.validate(dst)
+	}
+	return f, nil
+}
+
+func makeAssignToIntf(dstt, srct reflect.Type) (assignFunc, error) {
+	validator := getValidatorForType(dstt)
+
+	f := func(dst, src reflect.Value) error {
+		if !dst.CanAddr() {
+			return ErrDestinationNotAddressable
+		}
+		err := src.Interface().(AssignableTo).AssignTo(dst.Addr().Interface())
 		if err != nil {
 			return err
 		}

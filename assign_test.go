@@ -52,6 +52,21 @@ func TestAssignAs(t *testing.T) {
 	}
 }
 
+func TestAssignAssignTo(t *testing.T) {
+	a, err := typutil.As[objA](typutil.RawJsonMessage(`{"A":"value A","X":42,"C":123.456,"D":1e-19}`))
+	if err != nil {
+		t.Errorf("got error = %s", err)
+		return
+	}
+
+	if a.A != "value A" {
+		t.Errorf("unexpected value for a.A: %s", a.A)
+	}
+	if a.B != 42 {
+		t.Errorf("unexpected value for a.B: %v", a.B)
+	}
+}
+
 func TestAssignStruct(t *testing.T) {
 	a := &objA{A: "hello world", B: 42, C: 123456.789321, D: 555.22}
 	var b *objB

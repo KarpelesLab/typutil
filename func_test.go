@@ -75,7 +75,7 @@ func TestStaticParams(t *testing.T) {
 	}
 	st := typutil.Func(add)
 
-	res, err := typutil.Call[int](st, context.Background(), 1, 2)
+	res, err := typutil.Call[int](st, context.Background(), 1, "2")
 	if err != nil {
 		t.Errorf("error returned: %s", err)
 	} else if res != 3 {

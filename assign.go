@@ -648,7 +648,9 @@ func makeAssignToIntf(dstt, srct reflect.Type) (assignFunc, error) {
 		if !dst.CanAddr() {
 			return ErrDestinationNotAddressable
 		}
-		err := src.Interface().(AssignableTo).AssignTo(dst.Addr().Interface())
+		srcptr := reflect.New(srct)
+		srcptr.Elem().Set(src)
+		err := srcptr.Interface().(AssignableTo).AssignTo(dst.Addr().Interface())
 		if err != nil {
 			return err
 		}

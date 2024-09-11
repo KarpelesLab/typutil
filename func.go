@@ -3,6 +3,7 @@ package typutil
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 )
 
@@ -84,7 +85,7 @@ func (s *Callable) CallArg(ctx context.Context, arg ...any) (any, error) {
 		return nil, ErrMissingArgs
 	}
 	if len(arg) > s.cnt && !s.variadic {
-		return nil, errTooManyArgs
+		return nil, ErrTooManyArgs
 	}
 	// call this function but pass arg values
 	var args []reflect.Value
@@ -121,10 +122,12 @@ func (s *Callable) CallArg(ctx context.Context, arg ...any) (any, error) {
 	return s.parseResult(s.fn.Call(args))
 }
 
+// IsStringArg returns true if the nth argument of the callable is a string, or a type related to string
 func (s *Callable) IsStringArg(n int) bool {
 	return s.ArgKind(n) == reflect.String
 }
 
+// ArgKind returns the kind for the nth argument. reflect.Invalid will be returned if there is no such argument
 func (s *Callable) ArgKind(n int) reflect.Kind {
 	if n >= len(s.arg) {
 		return reflect.Invalid
@@ -146,10 +149,15 @@ func (s *Callable) parseResult(res []reflect.Value) (output any, err error) {
 	return
 }
 
+// Call will call the callable with the provided arguments, and cast the return type to the specified
+// type automatically. If the return type is not of the correct type, an error will be returned, unless
+// there was already an error.
 func Call[T any](s *Callable, ctx context.Context, arg ...any) (T, error) {
 	res, err := s.CallArg(ctx, arg...)
 	if v, ok := res.(T); ok {
 		return v, err
+	} else if err == nil {
+		err = fmt.Errorf("%w: %T", ErrDifferentType, res)
 	}
-	return reflect.New(reflect.TypeFor[T]()).Elem().Interface().(T), nil
+	return reflect.New(reflect.TypeFor[T]()).Elem().Interface().(T), err
 }

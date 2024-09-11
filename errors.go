@@ -11,5 +11,6 @@ var (
 	ErrStructPtrRequired         = errors.New("parameter must be a pointer to a struct")
 	ErrBadOffset                 = errors.New("bad offset type")
 	ErrMissingArgs               = errors.New("missing arguments")
-	errTooManyArgs               = errors.New("too many arguments")
+	ErrTooManyArgs               = errors.New("too many arguments")
+	ErrDifferentType             = errors.New("wrong type in function call")
 )

@@ -10,4 +10,6 @@ var (
 	ErrDestinationNotAddressable = errors.New("assign: destination cannot be addressed")
 	ErrStructPtrRequired         = errors.New("parameter must be a pointer to a struct")
 	ErrBadOffset                 = errors.New("bad offset type")
+	ErrMissingArgs               = errors.New("missing arguments")
+	errTooManyArgs               = errors.New("too many arguments")
 )

@@ -80,6 +80,14 @@ func (s *Callable) Call(ctx context.Context) (any, error) {
 
 // CallArg calls the method with the specified arguments. If less arguments are provided than required, an error will be raised.
 func (s *Callable) CallArg(ctx context.Context, arg ...any) (any, error) {
+	if s.cnt == 0 {
+		// no args, ignore any input
+		var args []reflect.Value
+		if s.ctxPos == 0 {
+			args = append(args, reflect.ValueOf(ctx))
+		}
+		return s.parseResult(s.fn.Call(args))
+	}
 	if len(arg) < s.cnt {
 		// not enough arguments to cover cnt
 		return nil, ErrMissingArgs

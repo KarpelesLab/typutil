@@ -110,6 +110,10 @@ func AssignReflect(vdst, vsrc reflect.Value) error {
 		vdst = vdst.Elem()
 	}
 
+	if !vsrc.IsValid() {
+		return ErrInvalidSource
+	}
+
 	f, err := getAssignFunc(vdst.Type(), vsrc.Type())
 	if err != nil {
 		return fmt.Errorf("%w (assigning %s to %s)", err, vsrc.Type(), vdst.Type())

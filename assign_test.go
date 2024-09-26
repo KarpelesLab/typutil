@@ -1,6 +1,7 @@
 package typutil_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/KarpelesLab/typutil"
@@ -49,6 +50,15 @@ func TestAssignAs(t *testing.T) {
 
 	if a != 42 {
 		t.Errorf("expected 42, got %v", a)
+	}
+
+	b, err := typutil.As[int](nil)
+	if !errors.Is(err, typutil.ErrInvalidSource) {
+		t.Errorf("got unexpected error = %s", err)
+	}
+
+	if b != 0 {
+		t.Errorf("expected 0, got %v", b)
 	}
 }
 

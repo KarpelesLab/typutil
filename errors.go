@@ -13,4 +13,5 @@ var (
 	ErrMissingArgs               = errors.New("missing arguments")
 	ErrTooManyArgs               = errors.New("too many arguments")
 	ErrDifferentType             = errors.New("wrong type in function call")
+	ErrInvalidSource             = errors.New("assign source is not valid")
 )

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"testing"
@@ -175,7 +174,6 @@ func TestDefaultArgs(t *testing.T) {
 	}
 
 	myFuncVar := func(ms string, v ...int) int {
-		log.Printf("ms = %s", ms)
 		m, _ := strconv.Atoi(ms)
 		var r int
 		for _, x := range v {

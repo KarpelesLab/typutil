@@ -37,6 +37,19 @@ var (
 // Func returns a [Callable] object for a func that accepts a context.Context and/or any
 // number of arguments
 func Func(method any, options ...funcOption) *Callable {
+	if v, ok := method.(*Callable); ok {
+		// Func(Func(...)) can be used to apply different options
+		// for example f := Func(...) f2 := Func(f, StrictArgs)
+		//
+		// But the main use is probably to pass a *Callable to a method expecting a func() and using Func() directly
+		nv := &Callable{}
+		*nv = *v
+		for _, opt := range options {
+			opt(nv)
+		}
+		return nv
+	}
+
 	v := reflect.ValueOf(method)
 	if v.Kind() != reflect.Func {
 		panic("static method not a method")

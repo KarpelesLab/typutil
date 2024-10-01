@@ -7,12 +7,18 @@ import (
 	"reflect"
 )
 
+type requiredArg int
+
+const Required requiredArg = 1
+
 type Callable struct {
 	fn       reflect.Value
-	cnt      int            // number of actual args
-	ctxPos   int            // pos of ctx argument, or -1
-	arg      []reflect.Type // type used for the argument to the method
-	variadic bool           // is the func's last argument a ...
+	cnt      int             // number of actual args
+	ctxPos   int             // pos of ctx argument, or -1
+	arg      []reflect.Type  // type used for the argument to the method
+	def      []reflect.Value // default values
+	variadic bool            // is the func's last argument a ...
+	vartyp   reflect.Type
 }
 
 var (
@@ -28,7 +34,7 @@ func Func(method any) *Callable {
 	}
 
 	typ := v.Type()
-	res := &Callable{fn: v, ctxPos: -1, cnt: typ.NumIn(), variadic: typ.IsVariadic()}
+	res := &Callable{fn: v, ctxPos: -1, cnt: typ.NumIn()}
 
 	ni := res.cnt
 
@@ -45,6 +51,57 @@ func Func(method any) *Callable {
 		res.arg = append(res.arg, in)
 	}
 
+	if typ.IsVariadic() {
+		res.variadic = true
+		ln := len(res.arg)
+		res.vartyp = res.arg[ln-1].Elem() // last argument is an array []...
+		res.arg = res.arg[:ln-1]
+	}
+
+	return res
+}
+
+// WithDefaults sets default arguments for the given callable that will be used when a call doesn't have
+// enough arguments to call the method. It will panic if there aren't enough arguments provided or if a
+// value is not compatible with the function's expected argument type.
+//
+// Example:
+//
+//	func myFunc(a, b, c int) { ... }
+//	f := Func(myFunc).WithDefaults(typutil.Required, typutil.Required, 42) // c defaults to 42
+//	f.CallArg(context.Background(), 10, 20) // equivalent to myFunc(10, 20, 42)
+func (s *Callable) WithDefaults(args ...any) *Callable {
+	// build def
+	if len(args) < s.cnt {
+		panic("WithDefaults requires at least the same number of arguments as the function")
+	}
+	if len(args) > s.cnt && !s.variadic {
+		panic(ErrTooManyArgs)
+	}
+
+	def := make([]reflect.Value, len(args))
+
+	for argN, arg := range args {
+		if arg == Required {
+			// keep this as an invalid value
+			continue
+		}
+		var argV reflect.Value
+		if argN >= len(s.arg) {
+			argV = reflect.New(s.vartyp)
+		} else {
+			argV = reflect.New(s.arg[argN])
+		}
+		err := AssignReflect(argV, reflect.ValueOf(arg))
+		if err != nil {
+			panic(err)
+		}
+		def[argN] = argV.Elem()
+	}
+
+	res := &Callable{}
+	*res = *s
+	res.def = def
 	return res
 }
 
@@ -88,7 +145,7 @@ func (s *Callable) CallArg(ctx context.Context, arg ...any) (any, error) {
 		}
 		return s.parseResult(s.fn.Call(args))
 	}
-	if len(arg) < s.cnt {
+	if len(arg) < s.cnt && s.def == nil {
 		// not enough arguments to cover cnt
 		return nil, ErrMissingArgs
 	}
@@ -111,7 +168,7 @@ func (s *Callable) CallArg(ctx context.Context, arg ...any) (any, error) {
 	for argN, v := range arg {
 		var argV reflect.Value
 		if argN >= len(s.arg) {
-			argV = reflect.New(s.arg[len(s.arg)-1])
+			argV = reflect.New(s.vartyp)
 		} else {
 			argV = reflect.New(s.arg[argN])
 		}
@@ -125,6 +182,15 @@ func (s *Callable) CallArg(ctx context.Context, arg ...any) (any, error) {
 		} else {
 			args[argN] = argV.Elem()
 		}
+	}
+	if len(args) < len(s.def) {
+		add := s.def[len(args):]
+		for _, v := range add {
+			if !v.IsValid() {
+				return nil, ErrMissingArgs
+			}
+		}
+		args = append(args, add...)
 	}
 
 	return s.parseResult(s.fn.Call(args))

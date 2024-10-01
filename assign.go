@@ -145,9 +145,6 @@ func newAssignFunc(dstt, srct reflect.Type) (assignFunc, error) {
 	if srct.AssignableTo(dstt) {
 		return simpleSet, nil
 	}
-	if srct.ConvertibleTo(dstt) {
-		return convertSet, nil
-	}
 
 	srcptrct := ptrCount(srct)
 	dstptrct := ptrCount(dstt)
@@ -200,12 +197,6 @@ func newAssignFunc(dstt, srct reflect.Type) (assignFunc, error) {
 
 func simpleSet(dst, src reflect.Value) error {
 	dst.Set(src)
-	return nil
-}
-
-func convertSet(dst, src reflect.Value) error {
-	v := src.Convert(dst.Type())
-	dst.Set(v)
 	return nil
 }
 

@@ -3,7 +3,10 @@ package typutil_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -143,5 +146,51 @@ func TestStaticScanner(t *testing.T) {
 	}
 	if str != `"World"` {
 		t.Errorf("failed to perform, result is %s", str)
+	}
+}
+
+func TestDefaultArgs(t *testing.T) {
+	myFunc := func(a, b, c int) int {
+		return a + b + c
+	}
+
+	f := typutil.Func(myFunc).WithDefaults(typutil.Required, typutil.Required, 42)
+
+	res, err := typutil.Call[int](f, context.Background(), 10, 20)
+	if err != nil {
+		t.Errorf("error: %s", err)
+	}
+	if res != 72 {
+		t.Errorf("expected res==72, got %d", res)
+	}
+
+	_, err = typutil.Call[int](f, context.Background(), 10)
+	if !errors.Is(err, typutil.ErrMissingArgs) {
+		t.Errorf("unexpected error on missing args: %s", err)
+	}
+
+	res, err = typutil.Call[int](f, context.Background(), 1, 2, 3, 4)
+	if !errors.Is(err, typutil.ErrTooManyArgs) {
+		t.Errorf("unexpected error on too many args: %s", err)
+	}
+
+	myFuncVar := func(ms string, v ...int) int {
+		log.Printf("ms = %s", ms)
+		m, _ := strconv.Atoi(ms)
+		var r int
+		for _, x := range v {
+			r += x + m
+		}
+		return r
+	}
+
+	f = typutil.Func(myFuncVar).WithDefaults(typutil.Required, 3, 7)
+
+	res, err = typutil.Call[int](f, context.Background(), 1) // 1+3 + 1+7 = 12
+	if err != nil {
+		t.Errorf("error: %s", err)
+	}
+	if res != 12 {
+		t.Errorf("expected res==12, got %d", res)
 	}
 }

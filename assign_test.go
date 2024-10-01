@@ -60,6 +60,15 @@ func TestAssignAs(t *testing.T) {
 	if b != 0 {
 		t.Errorf("expected 0, got %v", b)
 	}
+
+	c, err := typutil.As[string](42)
+	if err != nil {
+		t.Errorf("got error = %s", err)
+	}
+
+	if c != "42" {
+		t.Errorf("expected 42, got %v", c)
+	}
 }
 
 func TestAssignAssignTo(t *testing.T) {
@@ -93,7 +102,7 @@ func TestAssignStruct(t *testing.T) {
 	if b.B != 42 {
 		t.Errorf("struct to struct B missing")
 	}
-	if b.C != 123456 {
+	if b.C != 123457 {
 		t.Errorf("struct to struct C invalid value: %v", b.C)
 	}
 	if b.D != 555 {

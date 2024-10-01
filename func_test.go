@@ -191,4 +191,11 @@ func TestDefaultArgs(t *testing.T) {
 	if res != 12 {
 		t.Errorf("expected res==12, got %d", res)
 	}
+
+	f = typutil.Func(myFuncVar, typutil.StrictArgs)
+
+	_, err = typutil.Call[int](f, context.Background(), 1, 2, 3) // error
+	if !errors.Is(err, typutil.ErrAssignImpossible) {
+		t.Errorf("unexpected error %v", err)
+	}
 }

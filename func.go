@@ -9,7 +9,14 @@ import (
 
 type requiredArg int
 
-const Required requiredArg = 1
+type funcOption func(*Callable)
+
+const Required requiredArg = 1 // Required denotes a default argument that must be specified
+
+// StrictArgs, when passed to Func, forces that function's arguments to be of the right type
+func StrictArgs(c *Callable) {
+	c.strict = true
+}
 
 type Callable struct {
 	fn       reflect.Value
@@ -18,6 +25,7 @@ type Callable struct {
 	arg      []reflect.Type  // type used for the argument to the method
 	def      []reflect.Value // default values
 	variadic bool            // is the func's last argument a ...
+	strict   bool
 	vartyp   reflect.Type
 }
 
@@ -27,7 +35,7 @@ var (
 
 // Func returns a [Callable] object for a func that accepts a context.Context and/or any
 // number of arguments
-func Func(method any) *Callable {
+func Func(method any, options ...funcOption) *Callable {
 	v := reflect.ValueOf(method)
 	if v.Kind() != reflect.Func {
 		panic("static method not a method")
@@ -56,6 +64,10 @@ func Func(method any) *Callable {
 		ln := len(res.arg)
 		res.vartyp = res.arg[ln-1].Elem() // last argument is an array []...
 		res.arg = res.arg[:ln-1]
+	}
+
+	for _, opt := range options {
+		opt(res)
 	}
 
 	return res
@@ -92,9 +104,13 @@ func (s *Callable) WithDefaults(args ...any) *Callable {
 		} else {
 			argV = reflect.New(s.arg[argN])
 		}
-		err := AssignReflect(argV, reflect.ValueOf(arg))
-		if err != nil {
-			panic(err)
+		if s.strict {
+			argV.Set(reflect.ValueOf(arg))
+		} else {
+			err := AssignReflect(argV, reflect.ValueOf(arg))
+			if err != nil {
+				panic(err)
+			}
 		}
 		def[argN] = argV.Elem()
 	}
@@ -172,9 +188,17 @@ func (s *Callable) CallArg(ctx context.Context, arg ...any) (any, error) {
 		} else {
 			argV = reflect.New(s.arg[argN])
 		}
-		err := AssignReflect(argV, reflect.ValueOf(v))
-		if err != nil {
-			return nil, err
+		if s.strict {
+			subv := reflect.ValueOf(v)
+			if !subv.Type().AssignableTo(argV.Type()) {
+				return nil, ErrAssignImpossible
+			}
+			argV.Set(reflect.ValueOf(v))
+		} else {
+			err := AssignReflect(argV, reflect.ValueOf(v))
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if argN >= ctxPos {

@@ -24,3 +24,16 @@ func Add(a, b int) int {
 f := typutil.Func(Add)
 res, err := typutil.Call[int](f, ctx, 1, "2") // res=3
 ```
+
+## Func with default arguments
+
+Arguably, default arguments are something missing with Go. Well, here we go.
+
+```go
+func Add(a, b int) int {
+    return a + b
+}
+
+f := typutil.Func(Add).WithDefaults(typutil.Required, 42)
+res, err := typutil.Call[int](f, ctx, 58) // res=100
+```

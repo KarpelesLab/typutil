@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 type requiredArg int
@@ -71,6 +72,18 @@ func Func(method any, options ...funcOption) *Callable {
 	}
 
 	return res
+}
+
+// String returns a string representation of the function and its arguments
+func (s *Callable) String() string {
+	var args []string
+	for _, arg := range s.arg {
+		args = append(args, arg.String())
+	}
+	if s.variadic {
+		args = append(args, "..."+s.vartyp.String())
+	}
+	return "func(" + strings.Join(args, ", ") + ")"
 }
 
 // WithDefaults sets default arguments for the given callable that will be used when a call doesn't have

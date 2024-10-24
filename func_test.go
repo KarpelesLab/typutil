@@ -199,3 +199,23 @@ func TestDefaultArgs(t *testing.T) {
 		t.Errorf("unexpected error %v", err)
 	}
 }
+
+func TestDefaultArgsCtxBuf(t *testing.T) {
+	myFunc := func(ctx context.Context, A string, B bool, C string) (any, error) {
+		if B {
+			return C, nil
+		} else {
+			return A, nil
+		}
+	}
+
+	f := typutil.Func(myFunc).WithDefaults(typutil.Required, false, "C_default")
+
+	res, err := typutil.Call[string](f, context.Background(), "A_set")
+	if err != nil {
+		t.Errorf("error: %s", err)
+	}
+	if res != "A_set" {
+		t.Errorf("unexpected result")
+	}
+}

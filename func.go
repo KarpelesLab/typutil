@@ -197,11 +197,13 @@ func (s *Callable) CallArg(ctx context.Context, arg ...any) (any, error) {
 	// call this function but pass arg values
 	var args []reflect.Value
 	var ctxPos int
+	var ctxCnt int
 
 	if s.ctxPos != -1 {
 		args = make([]reflect.Value, len(arg)+1)
 		args[s.ctxPos] = reflect.ValueOf(ctx)
 		ctxPos = s.ctxPos
+		ctxCnt = 1
 	} else {
 		args = make([]reflect.Value, len(arg))
 		ctxPos = len(arg) + 1
@@ -233,8 +235,8 @@ func (s *Callable) CallArg(ctx context.Context, arg ...any) (any, error) {
 			args[argN] = argV.Elem()
 		}
 	}
-	if len(args) < len(s.def) {
-		add := s.def[len(args):]
+	if len(args)-ctxCnt < len(s.def) {
+		add := s.def[len(args)-ctxCnt:]
 		for _, v := range add {
 			if !v.IsValid() {
 				return nil, ErrMissingArgs

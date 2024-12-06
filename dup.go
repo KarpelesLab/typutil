@@ -42,7 +42,7 @@ func deepCloneReflect(src reflect.Value, ptrs map[uintptr]reflect.Value) reflect
 			return r
 		}
 		// duplicate the value
-		size := src.Cap()
+		size := src.Len()
 		dst := reflect.MakeSlice(src.Type(), src.Len(), src.Cap())
 		for i := 0; i < size; i++ {
 			dst.Index(i).Set(deepCloneReflect(src.Index(i), ptrs))

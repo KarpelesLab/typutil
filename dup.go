@@ -5,6 +5,33 @@ import (
 	"unsafe"
 )
 
+type deepCloneContext struct {
+	cache map[reflect.Type]map[uintptr]reflect.Value
+}
+
+func (c *deepCloneContext) get(t reflect.Type, p uintptr) (reflect.Value, bool) {
+	if c.cache == nil {
+		return reflect.Value{}, false
+	}
+	if _, ok := c.cache[t]; !ok {
+		return reflect.Value{}, false
+	}
+	if _, ok := c.cache[t][p]; !ok {
+		return reflect.Value{}, false
+	}
+	return c.cache[t][p], true
+}
+
+func (c *deepCloneContext) set(t reflect.Type, p uintptr, v reflect.Value) {
+	if c.cache == nil {
+		c.cache = make(map[reflect.Type]map[uintptr]reflect.Value)
+	}
+	if _, ok := c.cache[t]; !ok {
+		c.cache[t] = make(map[uintptr]reflect.Value)
+	}
+	c.cache[t][p] = v
+}
+
 // DeepClone performs a deep duplication of the provided argument, and returns the newly created object
 func DeepClone[T any](v T) T {
 	return DeepCloneReflect(reflect.ValueOf(v)).Interface().(T)
@@ -12,11 +39,11 @@ func DeepClone[T any](v T) T {
 
 // DeepCloneReflect performs a deep duplication of the provided reflect.Value
 func DeepCloneReflect(src reflect.Value) reflect.Value {
-	ptrs := make(map[uintptr]reflect.Value)
+	ptrs := &deepCloneContext{}
 	return deepCloneReflect(src, ptrs)
 }
 
-func deepCloneReflect(src reflect.Value, ptrs map[uintptr]reflect.Value) reflect.Value {
+func deepCloneReflect(src reflect.Value, ptrs *deepCloneContext) reflect.Value {
 	if !src.IsValid() {
 		// invalid value → return as is
 		return src
@@ -38,7 +65,7 @@ func deepCloneReflect(src reflect.Value, ptrs map[uintptr]reflect.Value) reflect
 		}
 		// TODO in case of slice, multiple slices may point to the same data but have different len
 		ptr := src.Pointer()
-		if r, ok := ptrs[ptr]; ok {
+		if r, ok := ptrs.get(src.Type(), ptr); ok {
 			return r
 		}
 		// duplicate the value
@@ -47,7 +74,7 @@ func deepCloneReflect(src reflect.Value, ptrs map[uintptr]reflect.Value) reflect
 		for i := 0; i < size; i++ {
 			dst.Index(i).Set(deepCloneReflect(src.Index(i), ptrs))
 		}
-		ptrs[ptr] = dst
+		ptrs.set(src.Type(), ptr, dst)
 		return dst
 	case reflect.Array:
 		size := src.Len()
@@ -61,7 +88,7 @@ func deepCloneReflect(src reflect.Value, ptrs map[uintptr]reflect.Value) reflect
 			return reflect.New(src.Type()).Elem()
 		}
 		ptr := src.Pointer()
-		if r, ok := ptrs[ptr]; ok {
+		if r, ok := ptrs.get(src.Type(), ptr); ok {
 			return r
 		}
 		dst := reflect.MakeMap(src.Type())
@@ -69,20 +96,20 @@ func deepCloneReflect(src reflect.Value, ptrs map[uintptr]reflect.Value) reflect
 		for iter.Next() {
 			dst.SetMapIndex(deepCloneReflect(iter.Key(), ptrs), deepCloneReflect(iter.Value(), ptrs))
 		}
-		ptrs[ptr] = dst
+		ptrs.set(src.Type(), ptr, dst)
 		return dst
 	case reflect.Ptr:
 		newPtr := reflect.New(src.Type()).Elem()
 		if !src.IsNil() {
 			ptr := src.Pointer()
-			if r, ok := ptrs[ptr]; ok {
+			if r, ok := ptrs.get(src.Type(), ptr); ok {
 				return r
 			}
 			// generate a new target for value
 			newV := reflect.New(src.Type().Elem())
 			newV.Elem().Set(deepCloneReflect(src.Elem(), ptrs))
 			newPtr.Set(newV)
-			ptrs[ptr] = newPtr
+			ptrs.set(src.Type(), ptr, newPtr)
 		}
 		return newPtr
 	case reflect.Interface:

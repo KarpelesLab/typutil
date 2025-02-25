@@ -3,8 +3,6 @@ package typutil
 import (
 	"encoding/json"
 	"reflect"
-
-	"github.com/KarpelesLab/pjson"
 )
 
 // BaseType attempts to convert v into its base type, that is if v is a type
@@ -13,8 +11,6 @@ func BaseType(v any) any {
 	switch o := v.(type) {
 	case json.RawMessage:
 		json.Unmarshal(o, &v)
-	case pjson.RawMessage:
-		pjson.Unmarshal(o, &v)
 	case reflect.Value:
 		v = o.Interface()
 	}

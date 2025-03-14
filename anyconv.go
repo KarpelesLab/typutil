@@ -12,7 +12,18 @@ import (
 	"strconv"
 )
 
-// AsBool loosely converts the value to a boolean
+// AsBool converts any value to a boolean using an intuitive conversion strategy.
+//
+// Conversion rules:
+// - bool: used directly
+// - numbers: true if non-zero, false if zero
+// - strings: true if non-empty and not "0", false otherwise
+// - bytes/buffer: true if length > 1 or not "0", false otherwise
+// - maps/slices/collections: true if not empty, false otherwise
+// - nil: false
+//
+// This is useful when working with user inputs, configuration values,
+// or any scenario where values of different types need to be interpreted as booleans.
 func AsBool(v any) bool {
 	v = BaseType(v)
 	switch r := v.(type) {
@@ -67,7 +78,21 @@ func AsBool(v any) bool {
 	}
 }
 
-// AsInt loosely converts the given value to a int64
+// AsInt converts any value to an int64 using flexible type conversion rules.
+//
+// It returns the converted value and a boolean indicating success (true) or failure (false).
+//
+// Conversion rules:
+// - Integer types: directly converted to int64
+// - Unsigned integers: converted to int64 (returns false if too large for int64)
+// - Booleans: true → 1, false → 0
+// - Floating point: rounded to nearest integer (returns false if not a whole number)
+// - Strings: parsed as integers (returns false if not a valid integer)
+// - Byte slices: converted to string and parsed
+// - Byte buffers: contents parsed as integers
+// - nil: returns 0
+//
+// This is useful for normalizing input data from various sources into consistent integer values.
 func AsInt(v any) (int64, bool) {
 	v = BaseType(v)
 	switch n := v.(type) {
@@ -127,7 +152,19 @@ func AsInt(v any) (int64, bool) {
 	return 0, false
 }
 
-// AsUint loosely converts the given value to a uint64
+// AsUint converts any value to a uint64 using flexible type conversion rules.
+//
+// It returns the converted value and a boolean indicating success (true) or failure (false).
+//
+// Conversion rules:
+// - Integer types: converted to uint64 (returns false if negative)
+// - Unsigned integers: directly converted to uint64
+// - Booleans: true → 1, false → 0
+// - Floating point: rounded to nearest integer (returns false if negative or not a whole number)
+// - Strings: parsed as unsigned integers (returns false if not a valid unsigned integer)
+// - nil: returns 0
+//
+// This is useful for normalizing input data from various sources into consistent unsigned integer values.
 func AsUint(v any) (uint64, bool) {
 	v = BaseType(v)
 	switch n := v.(type) {
@@ -183,7 +220,19 @@ func AsUint(v any) (uint64, bool) {
 	return 0, false
 }
 
-// AsFloat loosely converts the given value to a float64
+// AsFloat converts any value to a float64 using flexible type conversion rules.
+//
+// It returns the converted value and a boolean indicating success (true) or failure (false).
+//
+// Conversion rules:
+// - Float types: directly converted to float64
+// - Integer types: converted to equivalent float64
+// - Unsigned integers: converted to equivalent float64
+// - Strings: parsed as floating point numbers (returns false if not a valid number)
+// - nil: returns 0.0
+// - Other types: attempts conversion via AsInt as a fallback
+//
+// This is useful for normalizing input data from various sources into consistent floating point values.
 func AsFloat(v any) (float64, bool) {
 	v = BaseType(v)
 	switch n := v.(type) {
@@ -224,7 +273,18 @@ func AsFloat(v any) (float64, bool) {
 	return float64(res), ok
 }
 
-// AsNumber will loosely convert n in one of int64, uint64 or float64 depending on what feels best
+// AsNumber converts any value to the most appropriate numeric type (int64, uint64, or float64).
+//
+// It intelligently chooses the numeric type that best represents the input value:
+// - Most integers are represented as int64
+// - Large unsigned integers (that don't fit in int64) are represented as uint64
+// - Decimal numbers are represented as float64
+// - String representations of numbers are parsed to the appropriate type
+//
+// It returns the converted value (as interface{}) and a boolean indicating success (true) or failure (false).
+//
+// This is particularly useful when you need to convert a value to a number, but don't know
+// exactly which numeric type would be most appropriate.
 func AsNumber(v any) (any, bool) {
 	v = BaseType(v)
 	switch n := v.(type) {
@@ -303,7 +363,18 @@ func AsNumber(v any) (any, bool) {
 	return nil, false
 }
 
-// AsString will loosely converts the given value to a string
+// AsString converts any value to a string using flexible conversion rules.
+//
+// It returns the converted string and a boolean indicating success (true) or failure (false).
+//
+// Conversion rules:
+// - String types: used directly
+// - Byte slices and buffers: converted to strings
+// - Numeric types: formatted as base-10 strings
+// - Booleans: true → "1", false → "0"
+// - Other types: uses fmt.Sprintf("%v", value) but returns false to indicate non-direct conversion
+//
+// This is useful when you need to display or serialize values of various types as strings.
 func AsString(v any) (string, bool) {
 	v = BaseType(v)
 	switch s := v.(type) {
@@ -344,7 +415,21 @@ func AsString(v any) (string, bool) {
 	}
 }
 
-// AsByteArray will loosely convert the given value to a byte array
+// AsByteArray converts any value to a byte slice ([]byte) using flexible conversion rules.
+//
+// It returns the converted byte slice and a boolean indicating success (true) or failure (false).
+//
+// Conversion rules:
+// - Strings: converted to UTF-8 byte representation
+// - Byte slices: returned directly
+// - Buffer types: contents extracted as bytes
+// - Numeric types: converted to their binary representation (big-endian)
+// - Booleans: true → [1], false → [0]
+// - nil: returns nil
+// - Complex/Float types: binary representation using encoding/binary
+// - Other types: string representation as bytes, but marked as non-direct conversion (false)
+//
+// This is useful for serialization, hashing, or when working with binary protocols.
 func AsByteArray(v any) ([]byte, bool) {
 	v = BaseType(v)
 	switch s := v.(type) {
@@ -425,9 +510,21 @@ func AsByteArray(v any) ([]byte, bool) {
 	}
 }
 
-// ToType returns v converted to ref's type
+// ToType converts a value to the same type as a reference value.
 //
-// Deprecated: Use As[T](v) instead
+// It examines the type of the reference value (ref) and attempts to convert
+// the input value (v) to that same type. This is useful when you need to ensure
+// type compatibility between values.
+//
+// Parameters:
+//   - ref: The reference value whose type will be used as the target type
+//   - v: The value to convert to the target type
+//
+// Returns:
+//   - The converted value with the same type as ref
+//   - A boolean indicating success (true) or failure (false)
+//
+// Deprecated: Use the generic As[T](v) function instead, which provides type safety at compile time.
 func ToType(ref, v any) (any, bool) {
 	switch ref.(type) {
 	case bool:
@@ -506,44 +603,71 @@ func ToType(ref, v any) (any, bool) {
 	}
 }
 
+// toTypeInt is a generic helper function that converts any value to a signed integer type.
+// It supports all signed integer types (int, int8, int16, int32, int64).
 func toTypeInt[T Signed](v any) (T, bool) {
+	// First convert to a numeric type using AsNumber
 	n, ok := AsNumber(v)
+
+	// Then convert to the specific signed integer type based on the numeric type
 	switch xn := n.(type) {
 	case int64:
+		// Direct conversion from int64 to the target type
 		return T(xn), ok
 	case uint64:
+		// Converting from uint64 to signed type (potential overflow for large values)
 		return T(xn), ok
 	case float64:
+		// Converting from float64 to signed type (potential loss of precision)
 		return T(xn), ok
 	default:
+		// Fallback for unsupported types
 		return 0, false
 	}
 }
 
+// toTypeUint is a generic helper function that converts any value to an unsigned integer type.
+// It supports all unsigned integer types (uint, uint8, uint16, uint32, uint64, uintptr).
 func toTypeUint[T Unsigned](v any) (T, bool) {
+	// First convert to a numeric type using AsNumber
 	n, ok := AsNumber(v)
+
+	// Then convert to the specific unsigned integer type based on the numeric type
 	switch xn := n.(type) {
 	case int64:
+		// Converting from int64 to unsigned type (negative values will wrap)
 		return T(xn), ok
 	case uint64:
+		// Direct conversion from uint64 to the target type
 		return T(xn), ok
 	case float64:
+		// Converting from float64 to unsigned type (potential loss of precision)
 		return T(xn), ok
 	default:
+		// Fallback for unsupported types
 		return 0, false
 	}
 }
 
+// toTypeFloat is a generic helper function that converts any value to a floating-point type.
+// It supports both float32 and float64 types.
 func toTypeFloat[T ~float32 | ~float64](v any) (T, bool) {
+	// First convert to a numeric type using AsNumber
 	n, ok := AsNumber(v)
+
+	// Then convert to the specific float type based on the numeric type
 	switch xn := n.(type) {
 	case int64:
+		// Converting from int64 to float (exact for small integers)
 		return T(xn), ok
 	case uint64:
+		// Converting from uint64 to float (potential precision loss for large values)
 		return T(xn), ok
 	case float64:
+		// Converting from float64 to the target float type
 		return T(xn), ok
 	default:
+		// Fallback for unsupported types
 		return 0, false
 	}
 }

@@ -8,7 +8,32 @@ import (
 
 var units = []byte{0, 'K', 'M', 'G', 'T', 'P', 'E'}
 
-// FormatSize is a simple method that will format a given integer value into something easier to read as a human
+// FormatSize formats a byte size as a human-readable string with appropriate units.
+//
+// This function converts a raw byte count into a formatted string using binary prefixes
+// (KiB, MiB, GiB, etc.) according to IEC standards (powers of 1024).
+//
+// The formatted string includes:
+// - The integer part
+// - A decimal point
+// - Two decimal places
+// - The appropriate binary unit (B, KiB, MiB, GiB, TiB, PiB, EiB)
+//
+// For values less than 1024 bytes, the function returns a simple byte count without decimals.
+//
+// Parameters:
+//   - x: The size in bytes to format
+//
+// Returns:
+//   - A human-readable string representing the size
+//
+// Examples:
+//   - FormatSize(0) → "0 B"
+//   - FormatSize(1023) → "1023 B"
+//   - FormatSize(1024) → "1.00 KiB"
+//   - FormatSize(1536) → "1.50 KiB"
+//   - FormatSize(1048576) → "1.00 MiB"
+//   - FormatSize(1073741824) → "1.00 GiB"
 func FormatSize(x uint64) string {
 	if x == 0 {
 		return "0 B"

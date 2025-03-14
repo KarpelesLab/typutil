@@ -17,10 +17,56 @@ var (
 	validatorsLk sync.RWMutex
 )
 
-// A validator func is a function that takes one argument (the value being validated) and returns either nil or an error
-// If the function accepts a modifiable value (a pointer for example) it might be possible to modify the value during validation
+// A validator function takes one argument (the value being validated) and returns either nil or an error.
+// If the function accepts a modifiable value (like a pointer), it can potentially modify the value during validation.
+//
+// Validators are registered by name and can be used in struct field tags with the "validator" key.
+// For example:
+//
+//	type User struct {
+//	    Name string `validator:"required"`
+//	    Age  int    `validator:"min=18"`
+//	}
+//
+// Multiple validators can be specified with commas:
+//
+//	Email string `validator:"required,email"`
+//
+// Validators can accept arguments after an equals sign:
+//
+//	Password string `validator:"minlength=8,maxlength=64"`
 
-// SetValidator sets the given function as validator with the given name. This should be typically called in init()
+// SetValidator registers a typed validation function with the given name.
+//
+// This function provides a type-safe way to register validators. The validator
+// function must accept a single argument of type T and return an error.
+//
+// Parameters:
+//   - validator: The name of the validator (used in struct tags)
+//   - fnc: The validation function that checks values of type T
+//
+// This function should typically be called in init() to register validators
+// before they are used.
+//
+// Example:
+//
+//	func init() {
+//	    // Register a validator that ensures strings are not empty
+//	    SetValidator("required", func(s string) error {
+//	        if s == "" {
+//	            return errors.New("value is required")
+//	        }
+//	        return nil
+//	    })
+//
+//	    // Register a validator that ensures integers are positive
+//	    SetValidator("positive", func(i int) error {
+//	        if i <= 0 {
+//	            return errors.New("value must be positive")
+//	        }
+//	        return nil
+//	    })
+//	}
 func SetValidator[T any](validator string, fnc func(T) error) {
 	vfnc := reflect.ValueOf(fnc)
 	argt := reflect.TypeOf((*T)(nil)).Elem()
@@ -31,6 +77,38 @@ func SetValidator[T any](validator string, fnc func(T) error) {
 	validators[validator] = &validatorObject{fnc: vfnc, arg: argt}
 }
 
+// SetValidatorArgs registers a validation function that may accept additional arguments.
+//
+// Unlike SetValidator, this function accepts any function type as long as it takes
+// at least one argument (the value to validate) and returns an error. Additional
+// arguments can be specified in the validator tag after an equals sign.
+//
+// Parameters:
+//   - validator: The name of the validator (used in struct tags)
+//   - fnc: The validation function, which must:
+//   - Take at least one argument (the value to validate)
+//   - Return an error (or nil if validation passes)
+//
+// Example:
+//
+//	func init() {
+//	    // Register a validator that ensures strings have a minimum length
+//	    SetValidatorArgs("minlength", func(s string, minLen int) error {
+//	        if len(s) < minLen {
+//	            return fmt.Errorf("must be at least %d characters long", minLen)
+//	        }
+//	        return nil
+//	    })
+//	}
+//
+//	// Then use it in a struct tag:
+//	type User struct {
+//	    Password string `validator:"minlength=8"` // Password must be at least 8 characters
+//	}
+//
+// Panics if:
+//   - fnc is not a function
+//   - fnc does not accept at least one argument
 func SetValidatorArgs(validator string, fnc any) {
 	vfnc := reflect.ValueOf(fnc)
 	if vfnc.Kind() != reflect.Func {
@@ -134,8 +212,34 @@ func (sv structValidator) validate(val reflect.Value) error {
 	return nil
 }
 
-// Validate accept any struct as argument and returns if the struct is valid. The parameter should be a pointer
-// to the struct so validators can edit values.
+// Validate checks if a struct meets all validation rules defined in its field tags.
+//
+// This function processes all fields in a struct that have "validator" tags and
+// runs the appropriate validation functions on them. If any validation fails,
+// an error is returned with details about which field failed and why.
+//
+// Parameters:
+//   - obj: A pointer to the struct to validate. Using a pointer is required so that
+//     validators can potentially modify values during validation.
+//
+// Returns:
+//   - nil if all validations pass
+//   - An error if any validation fails, formatted as "on field X: error details"
+//   - ErrStructPtrRequired if obj is not a pointer to a struct
+//
+// Example:
+//
+//	type User struct {
+//	    Name     string `validator:"required"`
+//	    Email    string `validator:"required,email"`
+//	    Password string `validator:"minlength=8"`
+//	}
+//
+//	user := &User{Name: "Alice", Email: "invalid", Password: "123"}
+//	err := Validate(user) // Returns error: "on field Email: invalid email format"
+//
+// Validations are applied in the order they appear in the tag, from left to right.
+// If a field has no validator tag or the tag is empty, it is not validated.
 func Validate(obj any) error {
 	v := reflect.ValueOf(obj)
 	if v.Kind() != reflect.Pointer {

@@ -1,3 +1,31 @@
+// Package typutil provides flexible type conversion and function calling utilities for Go.
+//
+// This library offers several key features:
+//
+// 1. Type Conversion:
+//   - Convert between different Go types with automatic handling of common conversions
+//   - Support for primitive types, structs, slices, maps, and custom types
+//   - Convert between structs with different field types but matching names
+//
+// 2. Function Wrapping:
+//   - Wrap Go functions to support flexible argument handling
+//   - Automatic context detection and passing
+//   - Default parameter values
+//   - Type conversion for function arguments
+//   - JSON input handling
+//
+// 3. Validation:
+//   - Validate struct field values using tag-based validators
+//   - Register custom validators for specific types
+//   - Support for complex validation rules with parameters
+//
+// 4. Pointer and Interface Utilities:
+//   - Check for nil values in interfaces and pointers
+//   - Flatten nested pointers
+//   - Create pointers to values
+//
+// The package is designed to make working with dynamic types and function calls
+// in Go easier and more flexible, while maintaining type safety where possible.
 package typutil
 
 import (

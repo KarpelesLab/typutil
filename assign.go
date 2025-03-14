@@ -77,7 +77,49 @@ func getAssignFunc(dstt reflect.Type, srct reflect.Type) (assignFunc, error) {
 	return f, nil
 }
 
-// Assign sets dst to the value of src. In case src is any kind of container, a shallow copy is performed
+// Assign sets dst to the value of src, performing type conversion as needed.
+//
+// This is the main entry point for the type conversion system in typutil. It handles
+// automatic conversion between various Go types, including:
+// - Primitive types (string, int, float, bool)
+// - Pointers and interfaces
+// - Slices and maps
+// - Structs (using field names or JSON tags for matching)
+// - Custom types that implement valueScanner or AssignableTo interfaces
+//
+// For container types (slices, maps, structs), a shallow copy is performed.
+//
+// Parameters:
+//   - dst: A pointer to the destination value (must be a non-nil pointer)
+//   - src: The source value to assign from
+//
+// Returns:
+//   - An error if the assignment cannot be performed, such as when:
+//   - The destination is not a pointer
+//   - The types are incompatible and cannot be converted
+//   - The source value is invalid
+//
+// Example:
+//
+//	// Convert between compatible types
+//	var i int
+//	err := Assign(&i, "42")  // i becomes 42
+//
+//	// Convert between struct types with matching fields
+//	type Person struct {
+//	    Name string
+//	    Age int
+//	}
+//	type User struct {
+//	    Name string
+//	    Age string
+//	}
+//	p := Person{Name: "Alice", Age: 30}
+//	var u User
+//	err := Assign(&u, p)  // u becomes User{Name: "Alice", Age: "30"}
+//
+// Note that unlike json.Unmarshal or similar functions, Assign requires a pointer
+// to the destination value, not the destination value itself.
 func Assign(dst, src any) error {
 	// grab dst value
 	vdst := reflect.ValueOf(dst)
@@ -99,6 +141,21 @@ func Assign(dst, src any) error {
 	return f(vdst, vsrc)
 }
 
+// AssignReflect assigns a value from one reflect.Value to another, with type conversion.
+//
+// This is the reflection-based version of Assign that works directly with reflect.Value
+// objects. It's used internally by the library and is also available for advanced use cases
+// where you're already working with reflection.
+//
+// Parameters:
+//   - vdst: The destination reflect.Value
+//   - vsrc: The source reflect.Value
+//
+// Returns:
+//   - An error if the assignment cannot be performed
+//
+// This function handles unwrapping interface values, dealing with pointers,
+// and finding the appropriate conversion function for the types involved.
 func AssignReflect(vdst, vsrc reflect.Value) error {
 	if vsrc.Kind() == reflect.Interface {
 		vsrc = vsrc.Elem()
@@ -121,6 +178,34 @@ func AssignReflect(vdst, vsrc reflect.Value) error {
 	return f(vdst, vsrc)
 }
 
+// As converts a value to the specified type T, with type conversion as needed.
+//
+// This generic function provides a type-safe way to convert values between
+// different types. It leverages the type conversion capabilities of Assign
+// but returns the result as the requested type rather than modifying an
+// existing variable.
+//
+// Type Parameters:
+//   - T: The target type to convert to
+//
+// Parameters:
+//   - v: The value to convert
+//
+// Returns:
+//   - The converted value as type T
+//   - An error if the conversion cannot be performed
+//
+// Example:
+//
+//	// Convert string to int
+//	i, err := As[int]("42")  // i is 42
+//
+//	// Convert between struct types
+//	type Person struct {Name string; Age int}
+//	type User struct {Name string; Age string}
+//
+//	p := Person{Name: "Alice", Age: 30}
+//	u, err := As[User](p)  // u is User{Name: "Alice", Age: "30"}
 func As[T any](v any) (T, error) {
 	// convert any type to T
 	typ := reflect.TypeOf((*T)(nil)).Elem()

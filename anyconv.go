@@ -169,15 +169,15 @@ func AsUint(v any) (uint64, bool) {
 	v = BaseType(v)
 	switch n := v.(type) {
 	case int8:
-		return uint64(n), n > 0
+		return uint64(n), n >= 0
 	case int16:
-		return uint64(n), n > 0
+		return uint64(n), n >= 0
 	case int32:
-		return uint64(n), n > 0
+		return uint64(n), n >= 0
 	case int64:
-		return uint64(n), n > 0
+		return uint64(n), n >= 0
 	case int:
-		return uint64(n), n > 0
+		return uint64(n), n >= 0
 	case uint8:
 		return uint64(n), true
 	case uint16:

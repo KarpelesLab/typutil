@@ -84,6 +84,9 @@ func BaseType(v any) any {
 		return v
 	case reflect.Interface, reflect.Pointer:
 		// Recursively unwrap interfaces and pointers
+		if val.IsNil() {
+			return nil
+		}
 		return BaseType(val.Elem().Interface())
 	case reflect.String:
 		// Convert to native string

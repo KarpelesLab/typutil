@@ -72,7 +72,7 @@ func validateHex6Color(color *string) error {
 	}
 
 	for _, n := range *color {
-		if n < '0' && n > '9' && n < 'a' && n > 'f' && n < 'A' && n > 'F' {
+		if (n < '0' || n > '9') && (n < 'a' || n > 'f') && (n < 'A' || n > 'F') {
 			return errors.New("invalid hex char in color")
 		}
 	}
@@ -89,7 +89,7 @@ func validateHex64(hex string) error {
 		return errors.New("expected 64 hex chars")
 	}
 	for _, n := range hex {
-		if n < '0' && n > '9' && n < 'a' && n > 'f' && n < 'A' && n > 'F' {
+		if (n < '0' || n > '9') && (n < 'a' || n > 'f') && (n < 'A' || n > 'F') {
 			return errors.New("invalid hex char")
 		}
 	}

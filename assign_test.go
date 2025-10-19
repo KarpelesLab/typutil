@@ -141,3 +141,83 @@ func TestAssignStruct(t *testing.T) {
 		t.Errorf("struct to map A failed")
 	}
 }
+
+func TestAsMapToStruct(t *testing.T) {
+	type TestStruct struct {
+		Name    string
+		Age     int
+		Active  bool
+		Score   float64
+		Tag     string `json:"customTag"`
+		Missing string // not in map, should be zero value
+	}
+
+	m := map[string]any{
+		"Name":      "Alice",
+		"Age":       "30",      // string that should convert to int
+		"Active":    true,
+		"Score":     95.5,
+		"customTag": "tagged",  // should match via json tag
+		"Extra":     "ignored", // should be ignored
+	}
+
+	result, err := typutil.As[TestStruct](m)
+	if err != nil {
+		t.Errorf("As[TestStruct](map[string]any) failed: %s", err)
+		return
+	}
+
+	if result.Name != "Alice" {
+		t.Errorf("expected Name='Alice', got %q", result.Name)
+	}
+	if result.Age != 30 {
+		t.Errorf("expected Age=30, got %d", result.Age)
+	}
+	if !result.Active {
+		t.Errorf("expected Active=true, got %v", result.Active)
+	}
+	if result.Score != 95.5 {
+		t.Errorf("expected Score=95.5, got %f", result.Score)
+	}
+	if result.Tag != "tagged" {
+		t.Errorf("expected Tag='tagged' (via json tag), got %q", result.Tag)
+	}
+	if result.Missing != "" {
+		t.Errorf("expected Missing='' (zero value), got %q", result.Missing)
+	}
+}
+
+func TestAsMapToStructPointer(t *testing.T) {
+	type TestStruct struct {
+		Value string
+	}
+
+	m := map[string]any{"Value": "test"}
+
+	// Test that As returns the struct value, not a pointer
+	result, err := typutil.As[TestStruct](m)
+	if err != nil {
+		t.Errorf("As[TestStruct](map) failed: %s", err)
+		return
+	}
+
+	if result.Value != "test" {
+		t.Errorf("expected Value='test', got %q", result.Value)
+	}
+
+	// Test with pointer type
+	ptrResult, err := typutil.As[*TestStruct](m)
+	if err != nil {
+		t.Errorf("As[*TestStruct](map) failed: %s", err)
+		return
+	}
+
+	if ptrResult == nil {
+		t.Errorf("expected non-nil pointer")
+		return
+	}
+
+	if ptrResult.Value != "test" {
+		t.Errorf("expected Value='test', got %q", ptrResult.Value)
+	}
+}

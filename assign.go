@@ -1,7 +1,6 @@
 package typutil
 
 import (
-	"encoding"
 	"encoding/base64"
 	"fmt"
 	"reflect"
@@ -32,9 +31,8 @@ type AssignableTo interface {
 }
 
 var (
-	textUnmarshalerType = reflect.TypeFor[encoding.TextUnmarshaler]()
-	valueScannerType    = reflect.TypeFor[valueScanner]()
-	valueAssignerType   = reflect.TypeFor[AssignableTo]()
+	valueScannerType  = reflect.TypeFor[valueScanner]()
+	valueAssignerType = reflect.TypeFor[AssignableTo]()
 )
 
 func getAssignFunc(dstt reflect.Type, srct reflect.Type) (assignFunc, error) {

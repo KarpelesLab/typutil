@@ -78,10 +78,3 @@ func TestDup(t *testing.T) {
 		t.Errorf("b.d should equal 1337")
 	}
 }
-
-func must[T any](v T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-	return v
-}

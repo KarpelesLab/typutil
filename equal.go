@@ -22,7 +22,7 @@ func Equal(a, b any) bool {
 
 	switch av := a.(type) {
 	case []byte:
-		return bytes.Compare(av, b.([]byte)) == 0
+		return bytes.Equal(av, b.([]byte))
 	default:
 		// hope this works, lol
 		return a == b

@@ -140,7 +140,7 @@ func AsInt(v any) (int64, bool) {
 		res, err := strconv.ParseInt(string(n), 0, 64)
 		return res, err == nil
 	case *bytes.Buffer:
-		return AsInt(string(n.Bytes()))
+		return AsInt(n.String())
 	case json.Number:
 		return AsInt(string(n))
 	case nil:

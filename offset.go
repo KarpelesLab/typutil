@@ -37,7 +37,7 @@ func OffsetGet(ctx context.Context, v any, offset string) (any, error) {
 		if !ok {
 			return nil, fmt.Errorf("%w: %T", ErrBadOffset, offset)
 		}
-		if n < 0 || n >= uint64(len(a)) {
+		if n >= uint64(len(a)) {
 			// silent error
 			return nil, nil
 		}

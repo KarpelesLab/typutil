@@ -168,7 +168,7 @@ func TestDefaultArgs(t *testing.T) {
 		t.Errorf("unexpected error on missing args: %s", err)
 	}
 
-	res, err = typutil.Call[int](f, context.Background(), 1, 2, 3, 4)
+	_, err = typutil.Call[int](f, context.Background(), 1, 2, 3, 4)
 	if !errors.Is(err, typutil.ErrTooManyArgs) {
 		t.Errorf("unexpected error on too many args: %s", err)
 	}

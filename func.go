@@ -71,7 +71,7 @@ type Callable struct {
 
 var (
 	// ctxTyp is the reflect.Type representing context.Context interface
-	ctxTyp = reflect.TypeOf((*context.Context)(nil)).Elem()
+	ctxTyp = reflect.TypeFor[context.Context]()
 )
 
 // Func wraps a Go function as a Callable object, enabling flexible argument handling.
@@ -568,7 +568,7 @@ func (s *Callable) ArgKind(n int) reflect.Kind {
 }
 
 // errTyp is the reflect.Type representing the error interface
-var errTyp = reflect.TypeOf((*error)(nil)).Elem()
+var errTyp = reflect.TypeFor[error]()
 
 // parseResult processes the return values from a function call.
 //

@@ -69,7 +69,7 @@ var (
 //	}
 func SetValidator[T any](validator string, fnc func(T) error) {
 	vfnc := reflect.ValueOf(fnc)
-	argt := reflect.TypeOf((*T)(nil)).Elem()
+	argt := reflect.TypeFor[T]()
 
 	validatorsLk.Lock()
 	defer validatorsLk.Unlock()

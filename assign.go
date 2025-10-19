@@ -32,9 +32,9 @@ type AssignableTo interface {
 }
 
 var (
-	textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
-	valueScannerType    = reflect.TypeOf((*valueScanner)(nil)).Elem()
-	valueAssignerType   = reflect.TypeOf((*AssignableTo)(nil)).Elem()
+	textUnmarshalerType = reflect.TypeFor[encoding.TextUnmarshaler]()
+	valueScannerType    = reflect.TypeFor[valueScanner]()
+	valueAssignerType   = reflect.TypeFor[AssignableTo]()
 )
 
 func getAssignFunc(dstt reflect.Type, srct reflect.Type) (assignFunc, error) {
@@ -208,7 +208,7 @@ func AssignReflect(vdst, vsrc reflect.Value) error {
 //	u, err := As[User](p)  // u is User{Name: "Alice", Age: "30"}
 func As[T any](v any) (T, error) {
 	// convert any type to T
-	typ := reflect.TypeOf((*T)(nil)).Elem()
+	typ := reflect.TypeFor[T]()
 	obj := reflect.New(typ) // it's a pointer
 
 	err := AssignReflect(obj, reflect.ValueOf(v))

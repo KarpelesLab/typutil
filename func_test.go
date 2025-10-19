@@ -85,6 +85,7 @@ func TestStaticParams(t *testing.T) {
 	}
 
 	// test with input_json
+	//lint:ignore SA1029 library uses string key for input_json context value
 	ctx := context.WithValue(context.Background(), "input_json", json.RawMessage("[3,4]"))
 
 	resAny, err := st.Call(ctx)

@@ -154,7 +154,7 @@ func TestAsMapToStruct(t *testing.T) {
 
 	m := map[string]any{
 		"Name":      "Alice",
-		"Age":       "30",      // string that should convert to int
+		"Age":       "30", // string that should convert to int
 		"Active":    true,
 		"Score":     95.5,
 		"customTag": "tagged",  // should match via json tag

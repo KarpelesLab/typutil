@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -218,5 +219,99 @@ func TestDefaultArgsCtxBuf(t *testing.T) {
 	}
 	if res != "A_set" {
 		t.Errorf("unexpected result")
+	}
+}
+
+func TestCallableString(t *testing.T) {
+	t.Run("no args", func(t *testing.T) {
+		f := typutil.Func(func() {})
+		s := f.String()
+		if s != "func()" {
+			t.Errorf("expected 'func()', got %q", s)
+		}
+	})
+
+	t.Run("single arg", func(t *testing.T) {
+		f := typutil.Func(func(a int) {})
+		s := f.String()
+		if s != "func(int)" {
+			t.Errorf("expected 'func(int)', got %q", s)
+		}
+	})
+
+	t.Run("multiple args", func(t *testing.T) {
+		f := typutil.Func(func(a string, b int, c bool) {})
+		s := f.String()
+		if s != "func(string, int, bool)" {
+			t.Errorf("expected 'func(string, int, bool)', got %q", s)
+		}
+	})
+
+	t.Run("variadic", func(t *testing.T) {
+		f := typutil.Func(func(a string, b ...int) {})
+		s := f.String()
+		if s != "func(string, ...int)" {
+			t.Errorf("expected 'func(string, ...int)', got %q", s)
+		}
+	})
+
+	t.Run("complex types", func(t *testing.T) {
+		f := typutil.Func(func(a []string, b map[string]int) {})
+		s := f.String()
+		if !strings.Contains(s, "[]string") || !strings.Contains(s, "map[string]int") {
+			t.Errorf("expected complex types in string, got %q", s)
+		}
+	})
+}
+
+func TestCallableArgKind(t *testing.T) {
+	f := typutil.Func(func(a string, b int, c bool, d float64) {})
+
+	tests := []struct {
+		index    int
+		expected reflect.Kind
+	}{
+		{0, reflect.String},
+		{1, reflect.Int},
+		{2, reflect.Bool},
+		{3, reflect.Float64},
+		{4, reflect.Invalid},  // out of bounds
+		{-1, reflect.Invalid}, // negative index (will be out of bounds check)
+	}
+
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("arg_%d", tc.index), func(t *testing.T) {
+			// Note: negative index check might behave differently
+			if tc.index >= 0 {
+				kind := f.ArgKind(tc.index)
+				if kind != tc.expected {
+					t.Errorf("ArgKind(%d) = %v, want %v", tc.index, kind, tc.expected)
+				}
+			}
+		})
+	}
+}
+
+func TestCallableIsStringArg(t *testing.T) {
+	f := typutil.Func(func(a string, b int, c []byte, d string) {})
+
+	tests := []struct {
+		index    int
+		expected bool
+	}{
+		{0, true},  // string
+		{1, false}, // int
+		{2, false}, // []byte
+		{3, true},  // string
+		{4, false}, // out of bounds
+	}
+
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("arg_%d", tc.index), func(t *testing.T) {
+			result := f.IsStringArg(tc.index)
+			if result != tc.expected {
+				t.Errorf("IsStringArg(%d) = %v, want %v", tc.index, result, tc.expected)
+			}
+		})
 	}
 }

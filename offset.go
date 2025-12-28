@@ -56,11 +56,10 @@ func OffsetGet(ctx context.Context, v any, offset string) (any, error) {
 			case reflect.String:
 				// this we can handle
 				v := vr.MapIndex(reflect.ValueOf(offset))
-				if v.IsZero() {
+				if !v.IsValid() {
 					return nil, nil
-				} else {
-					return v.Interface(), nil
 				}
+				return v.Interface(), nil
 			}
 		}
 		return nil, fmt.Errorf("unsupported type %T for offset fetching", v)

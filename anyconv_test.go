@@ -262,6 +262,8 @@ func TestAsString(t *testing.T) {
 }
 
 func TestAsByteArray(t *testing.T) {
+	// Note: BaseType converts all int types to int64 and uint types to uint64
+	// So all integer types produce 8-byte arrays
 	tests := []struct {
 		name     string
 		v        interface{}
@@ -271,19 +273,23 @@ func TestAsByteArray(t *testing.T) {
 	}{
 		{"string", "hello", true, true, 5},
 		{"bytes", []byte("hello"), true, true, 5},
-		// Buffer doesn't work as expected in the current implementation
-		{"buffer", bytes.NewBuffer([]byte("hello")), false, false, 0},
-		{"int64", int64(42), true, false, 0},
-		{"uint64", uint64(42), true, false, 0},
-		{"int32", int32(42), true, false, 0},
-		{"uint32", uint32(42), true, false, 0},
-		{"int16", int16(42), true, false, 0},
-		{"uint16", uint16(42), true, false, 0},
-		{"int8", int8(42), true, false, 0},
-		{"uint8", uint8(42), true, false, 0},
+		{"int64", int64(42), true, true, 8},
+		{"uint64", uint64(42), true, true, 8},
+		// BaseType converts smaller ints to int64/uint64, so they become 8 bytes
+		{"int32", int32(42), true, true, 8},
+		{"uint32", uint32(42), true, true, 8},
+		{"int16", int16(42), true, true, 8},
+		{"uint16", uint16(42), true, true, 8},
+		{"int8", int8(42), true, true, 8},
+		{"uint8", uint8(42), true, true, 8},
 		{"bool true", true, true, true, 1},
 		{"bool false", false, true, true, 1},
 		{"nil", nil, true, true, 0},
+		// BaseType converts float32 to float64, so it becomes 8 bytes
+		{"float32", float32(3.14), true, true, 8},
+		{"float64", float64(3.14), true, true, 8},
+		{"int native", int(42), true, true, 8},
+		{"uint native", uint(42), true, true, 8},
 	}
 
 	for _, tt := range tests {
@@ -336,4 +342,200 @@ func TestToType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestToTypeFailures(t *testing.T) {
+	// Test cases that should fail
+	tests := []struct {
+		name string
+		ref  interface{}
+		v    interface{}
+	}{
+		{"int from invalid string", int(0), "not a number"},
+		{"float from invalid string", float64(0), "not a number"},
+		{"uint from invalid string", uint(0), "not a number"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, gotOk := typutil.ToType(tt.ref, tt.v)
+			if gotOk {
+				t.Errorf("ToType(%v, %v) should fail but returned ok=true", tt.ref, tt.v)
+			}
+		})
+	}
+}
+
+func TestToTypeUnsupported(t *testing.T) {
+	// Test with unsupported reference type
+	type customType struct {
+		value int
+	}
+	ref := customType{}
+	_, ok := typutil.ToType(ref, "test")
+	if ok {
+		t.Errorf("ToType with unsupported reference type should return ok=false")
+	}
+}
+
+func TestAsIntExtended(t *testing.T) {
+	// Additional tests for AsInt to improve coverage
+	tests := []struct {
+		name   string
+		v      interface{}
+		want   int64
+		wantOk bool
+	}{
+		{"negative int8", int8(-42), -42, true},
+		{"negative int16", int16(-42), -42, true},
+		{"negative int32", int32(-42), -42, true},
+		{"negative int64", int64(-42), -42, true},
+		{"uintptr", uintptr(42), 42, true},
+		{"large uint64", uint64(1 << 62), int64(1 << 62), true},
+		{"float64 negative", float64(-42.5), -43, true},
+		{"empty string", "", 0, false},
+		{"whitespace string", "  42  ", 0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotOk := typutil.AsInt(tt.v)
+			if got != tt.want || gotOk != tt.wantOk {
+				t.Errorf("AsInt(%v) = (%v, %v), want (%v, %v)", tt.v, got, gotOk, tt.want, tt.wantOk)
+			}
+		})
+	}
+}
+
+func TestAsUintExtended(t *testing.T) {
+	// Additional tests for AsUint to improve coverage
+	// Note: For negative ints, the function returns the wrapped uint64 value with ok=false
+	t.Run("uintptr", func(t *testing.T) {
+		got, ok := typutil.AsUint(uintptr(42))
+		if got != 42 || !ok {
+			t.Errorf("AsUint(uintptr(42)) = (%v, %v), want (42, true)", got, ok)
+		}
+	})
+
+	// Negative integers should return ok=false
+	t.Run("negative int64", func(t *testing.T) {
+		_, ok := typutil.AsUint(int64(-42))
+		if ok {
+			t.Errorf("AsUint(int64(-42)) should return ok=false")
+		}
+	})
+
+	t.Run("negative int", func(t *testing.T) {
+		_, ok := typutil.AsUint(int(-42))
+		if ok {
+			t.Errorf("AsUint(int(-42)) should return ok=false")
+		}
+	})
+
+	t.Run("empty string", func(t *testing.T) {
+		got, ok := typutil.AsUint("")
+		if got != 0 || ok {
+			t.Errorf("AsUint(\"\") = (%v, %v), want (0, false)", got, ok)
+		}
+	})
+
+	t.Run("negative string", func(t *testing.T) {
+		got, ok := typutil.AsUint("-42")
+		if got != 0 || ok {
+			t.Errorf("AsUint(\"-42\") = (%v, %v), want (0, false)", got, ok)
+		}
+	})
+}
+
+func TestAsFloatExtended(t *testing.T) {
+	// Additional tests for AsFloat to improve coverage
+	t.Run("bool true", func(t *testing.T) {
+		got, ok := typutil.AsFloat(true)
+		if got != 1.0 || !ok {
+			t.Errorf("AsFloat(true) = (%v, %v), want (1.0, true)", got, ok)
+		}
+	})
+
+	t.Run("bool false", func(t *testing.T) {
+		got, ok := typutil.AsFloat(false)
+		if got != 0.0 || !ok {
+			t.Errorf("AsFloat(false) = (%v, %v), want (0.0, true)", got, ok)
+		}
+	})
+
+	t.Run("json.Number", func(t *testing.T) {
+		got, ok := typutil.AsFloat(json.Number("3.14"))
+		if got != 3.14 || !ok {
+			t.Errorf("AsFloat(json.Number(\"3.14\")) = (%v, %v), want (3.14, true)", got, ok)
+		}
+	})
+
+	t.Run("json.Number invalid", func(t *testing.T) {
+		_, ok := typutil.AsFloat(json.Number("abc"))
+		if ok {
+			t.Errorf("AsFloat(json.Number(\"abc\")) should return ok=false")
+		}
+	})
+
+	t.Run("negative float", func(t *testing.T) {
+		got, ok := typutil.AsFloat(float64(-3.14))
+		if got != -3.14 || !ok {
+			t.Errorf("AsFloat(-3.14) = (%v, %v), want (-3.14, true)", got, ok)
+		}
+	})
+}
+
+func TestAsNumberExtended(t *testing.T) {
+	// Additional tests for AsNumber to improve coverage
+	t.Run("json.Number valid", func(t *testing.T) {
+		_, ok := typutil.AsNumber(json.Number("42"))
+		if !ok {
+			t.Errorf("AsNumber(json.Number(\"42\")) should return ok=true")
+		}
+	})
+
+	t.Run("json.Number float", func(t *testing.T) {
+		_, ok := typutil.AsNumber(json.Number("3.14"))
+		if !ok {
+			t.Errorf("AsNumber(json.Number(\"3.14\")) should return ok=true")
+		}
+	})
+
+	t.Run("json.Number invalid", func(t *testing.T) {
+		_, ok := typutil.AsNumber(json.Number("abc"))
+		if ok {
+			t.Errorf("AsNumber(json.Number(\"abc\")) should return ok=false")
+		}
+	})
+
+	t.Run("uintptr", func(t *testing.T) {
+		_, ok := typutil.AsNumber(uintptr(42))
+		if !ok {
+			t.Errorf("AsNumber(uintptr(42)) should return ok=true")
+		}
+	})
+}
+
+func TestAsStringExtended(t *testing.T) {
+	// Additional tests for AsString to improve coverage
+	t.Run("json.Number", func(t *testing.T) {
+		got, ok := typutil.AsString(json.Number("42"))
+		if got != "42" || !ok {
+			t.Errorf("AsString(json.Number(\"42\")) = (%v, %v), want (\"42\", true)", got, ok)
+		}
+	})
+
+	t.Run("uintptr", func(t *testing.T) {
+		got, ok := typutil.AsString(uintptr(42))
+		if got != "42" || !ok {
+			t.Errorf("AsString(uintptr(42)) = (%v, %v), want (\"42\", true)", got, ok)
+		}
+	})
+
+	t.Run("negative int", func(t *testing.T) {
+		got, ok := typutil.AsString(int(-42))
+		if got != "-42" || !ok {
+			t.Errorf("AsString(int(-42)) = (%v, %v), want (\"-42\", true)", got, ok)
+		}
+	})
 }

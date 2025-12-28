@@ -145,3 +145,99 @@ func TestMathEdgeCases(t *testing.T) {
 	_, _ = typutil.Math("+", uint64(math.MaxUint64), uint64(1))
 	_, _ = typutil.Math("+", int64(math.MaxInt64), int64(1))
 }
+
+func TestMathFloatCombinations(t *testing.T) {
+	// Test float64 with other types (to improve coverage)
+	t.Run("float64 + int64", func(t *testing.T) {
+		result, ok := typutil.Math("+", 40.5, int64(2))
+		if !ok {
+			t.Errorf("Math('+', 40.5, int64(2)) should succeed")
+		}
+		if result.(float64) != 42.5 {
+			t.Errorf("expected 42.5, got %v", result)
+		}
+	})
+
+	t.Run("float64 + uint64", func(t *testing.T) {
+		result, ok := typutil.Math("+", 40.5, uint64(2))
+		if !ok {
+			t.Errorf("Math('+', 40.5, uint64(2)) should succeed")
+		}
+		if result.(float64) != 42.5 {
+			t.Errorf("expected 42.5, got %v", result)
+		}
+	})
+
+	t.Run("float64 + float64", func(t *testing.T) {
+		result, ok := typutil.Math("+", 40.5, 1.5)
+		if !ok {
+			t.Errorf("Math('+', 40.5, 1.5) should succeed")
+		}
+		if result.(float64) != 42.0 {
+			t.Errorf("expected 42.0, got %v", result)
+		}
+	})
+
+	t.Run("int64 + float64", func(t *testing.T) {
+		result, ok := typutil.Math("+", int64(40), 2.5)
+		if !ok {
+			t.Errorf("Math('+', int64(40), 2.5) should succeed")
+		}
+		if result.(float64) != 42.5 {
+			t.Errorf("expected 42.5, got %v", result)
+		}
+	})
+
+	t.Run("uint64 + float64", func(t *testing.T) {
+		result, ok := typutil.Math("+", uint64(40), 2.5)
+		if !ok {
+			t.Errorf("Math('+', uint64(40), 2.5) should succeed")
+		}
+		if result.(float64) != 42.5 {
+			t.Errorf("expected 42.5, got %v", result)
+		}
+	})
+}
+
+func TestMathMixedSignTypes(t *testing.T) {
+	// Test mixing positive and negative signed/unsigned types
+	t.Run("positive int64 + uint64", func(t *testing.T) {
+		result, ok := typutil.Math("+", int64(40), uint64(2))
+		if !ok {
+			t.Errorf("Math should succeed")
+		}
+		if result != uint64(42) {
+			t.Errorf("expected uint64(42), got %v (type %T)", result, result)
+		}
+	})
+
+	t.Run("negative int64 + uint64", func(t *testing.T) {
+		result, ok := typutil.Math("+", int64(-10), uint64(52))
+		if !ok {
+			t.Errorf("Math should succeed")
+		}
+		if result != int64(42) {
+			t.Errorf("expected int64(42), got %v (type %T)", result, result)
+		}
+	})
+
+	t.Run("uint64 + positive int64", func(t *testing.T) {
+		result, ok := typutil.Math("+", uint64(40), int64(2))
+		if !ok {
+			t.Errorf("Math should succeed")
+		}
+		if result != uint64(42) {
+			t.Errorf("expected uint64(42), got %v (type %T)", result, result)
+		}
+	})
+
+	t.Run("uint64 + negative int64", func(t *testing.T) {
+		result, ok := typutil.Math("+", uint64(50), int64(-8))
+		if !ok {
+			t.Errorf("Math should succeed")
+		}
+		if result != int64(42) {
+			t.Errorf("expected int64(42), got %v (type %T)", result, result)
+		}
+	})
+}

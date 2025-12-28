@@ -369,9 +369,9 @@ func TestToTypeFailures(t *testing.T) {
 func TestToTypeUnsupported(t *testing.T) {
 	// Test with unsupported reference type
 	type customType struct {
-		value int
+		Value int
 	}
-	ref := customType{}
+	ref := customType{Value: 42}
 	_, ok := typutil.ToType(ref, "test")
 	if ok {
 		t.Errorf("ToType with unsupported reference type should return ok=false")

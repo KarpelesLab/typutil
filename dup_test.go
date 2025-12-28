@@ -78,3 +78,44 @@ func TestDup(t *testing.T) {
 		t.Errorf("b.d should equal 1337")
 	}
 }
+
+type cloneSkipStruct struct {
+	Name    string
+	Value   int
+	Skipped *int `clone:"-"`
+	Data    []byte
+}
+
+func TestDeepCloneSkipTag(t *testing.T) {
+	v := 42
+	original := &cloneSkipStruct{
+		Name:    "test",
+		Value:   100,
+		Skipped: &v,
+		Data:    []byte("hello"),
+	}
+
+	cloned := typutil.DeepClone(*original)
+
+	// Regular fields should be cloned
+	if cloned.Name != "test" {
+		t.Errorf("cloned.Name should equal 'test', got %q", cloned.Name)
+	}
+	if cloned.Value != 100 {
+		t.Errorf("cloned.Value should equal 100, got %d", cloned.Value)
+	}
+	if !bytes.Equal(cloned.Data, []byte("hello")) {
+		t.Errorf("cloned.Data should equal 'hello'")
+	}
+
+	// Skipped field should retain shallow copy (same pointer as original)
+	if cloned.Skipped != original.Skipped {
+		t.Errorf("cloned.Skipped should be same pointer as original.Skipped (clone:\"-\" should skip deep clone)")
+	}
+
+	// Verify Data was actually deep cloned (not same slice)
+	cloned.Data[0] = 'H'
+	if bytes.Equal(original.Data, cloned.Data) {
+		t.Errorf("original.Data should not be affected by changes to cloned.Data")
+	}
+}

@@ -122,15 +122,23 @@ func deepCloneReflect(src reflect.Value, ptrs *deepCloneContext) reflect.Value {
 		}
 		return newPtr
 	case reflect.Struct:
-		dst := reflect.New(src.Type()).Elem()
-		dst.Set(src) // first, make a shallow copy so we have a guaranteed addressable version of the struct
+		structType := src.Type()
+		dst := reflect.New(structType).Elem()
+		dst.Set(src) // shallow copy first
 		n := src.NumField()
-		for i := 0; i < n; i += 1 {
-			if !src.Type().Field(i).IsExported() {
+		for i := 0; i < n; i++ {
+			field := structType.Field(i)
+
+			// check for clone:"-" tag to skip this field
+			if tag := field.Tag.Get("clone"); tag == "-" {
+				continue
+			}
+
+			if !field.IsExported() {
 				// accessing unexported fields normally will cause panic, so we do it the not normal way
-				field := dst.Field(i)
-				val := deepCloneReflect(reflect.NewAt(field.Type(), unsafe.Pointer(dst.Field(i).UnsafeAddr())).Elem(), ptrs)
-				reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(val)
+				dstField := dst.Field(i)
+				val := deepCloneReflect(reflect.NewAt(dstField.Type(), unsafe.Pointer(dstField.UnsafeAddr())).Elem(), ptrs)
+				reflect.NewAt(dstField.Type(), unsafe.Pointer(dstField.UnsafeAddr())).Elem().Set(val)
 				continue
 			}
 			dst.Field(i).Set(deepCloneReflect(dst.Field(i), ptrs))

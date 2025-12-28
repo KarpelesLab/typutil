@@ -1,4 +1,5 @@
 [![GoDoc](https://godoc.org/github.com/KarpelesLab/typutil?status.svg)](https://godoc.org/github.com/KarpelesLab/typutil)
+[![Coverage Status](https://coveralls.io/repos/github/KarpelesLab/typutil/badge.svg?branch=master)](https://coveralls.io/github/KarpelesLab/typutil?branch=master)
 
 # typutil - Go Type Conversion & Validation Utilities
 

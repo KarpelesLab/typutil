@@ -1,14 +1,14 @@
 package typutil
 
 import (
-	"github.com/KarpelesLab/pjson"
+	"encoding/json/v2"
 )
 
 // RawJsonMessage is similar to json.RawMessage, but also implements additional functionality.
 //
 // This type represents a raw JSON message as a byte slice. It provides:
 // 1. Standard JSON marshaling/unmarshaling (like json.RawMessage)
-// 2. The ability to assign its value to another variable via pjson.Unmarshal
+// 2. The ability to assign its value to another variable via json.Unmarshal
 //
 // RawJsonMessage is particularly useful when working with the Callable.Call method,
 // which can extract JSON data from context and use it as function arguments.
@@ -33,7 +33,7 @@ func (m *RawJsonMessage) UnmarshalJSON(data []byte) error {
 
 // AssignTo unmarshals the raw JSON message into the provided value.
 //
-// This method uses pjson.Unmarshal (an enhanced JSON unmarshaler) to parse
+// This method uses json.Unmarshal (encoding/json/v2) to parse
 // the raw JSON data and assign it to the target value. It's useful for
 // converting JSON data to Go types, particularly when working with function
 // arguments in the Callable.Call method.
@@ -44,5 +44,5 @@ func (m *RawJsonMessage) UnmarshalJSON(data []byte) error {
 // Returns:
 //   - An error if the JSON parsing fails
 func (m RawJsonMessage) AssignTo(v any) error {
-	return pjson.Unmarshal([]byte(m), v)
+	return json.Unmarshal([]byte(m), v)
 }
